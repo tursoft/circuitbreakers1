@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>V2 Scoop-Clamp Paddle Gripper</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#111827;color:#e0e0e0;font-family:'Segoe UI',sans-serif}
+  h1{text-align:center;padding:16px;color:#34d399;font-size:1.35em}
+  .sub{text-align:center;color:#888;font-size:.85em;margin-top:-10px;margin-bottom:12px}
+  .row{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;padding:8px 16px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;flex:1;min-width:330px;max-width:580px}
+  .card h2{color:#34d399;font-size:1em;margin-bottom:10px;text-align:center}
+  canvas{display:block;margin:0 auto;background:#0f172a;border-radius:8px}
+  .ctrl{margin-top:10px;text-align:center}
+  .ctrl label{display:block;margin:6px 0 2px;font-size:.82em;color:#94a3b8}
+  input[type=range]{width:92%;accent-color:#34d399}
+  .info{margin-top:10px;padding:10px;background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;font-size:.8em;line-height:1.65}
+  .info b{color:#34d399}
+  .pills{display:flex;gap:6px;justify-content:center;margin:10px 0;flex-wrap:wrap}
+  .pills button{padding:5px 14px;border:1px solid #34d399;background:transparent;color:#34d399;border-radius:6px;cursor:pointer;font-size:.82em;transition:.15s}
+  .pills button.on,.pills button:hover{background:#34d399;color:#111827}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
+  .tag-new{background:#065f46;color:#34d399}
+  .tag-old{background:#7f1d1d;color:#fca5a5}
+  .specs{display:flex;gap:12px;justify-content:center;margin:8px 16px;flex-wrap:wrap}
+  .sbox{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:7px 14px;text-align:center;font-size:.78em}
+  .sbox .v{font-size:1.35em;color:#34d399;font-weight:bold}
+  .sbox .l{color:#64748b;font-size:.82em}
+  .vs{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+  .vs-col{flex:1;min-width:160px;padding:10px;border-radius:8px;font-size:.8em;line-height:1.6}
+  .vs-old{background:#1c1917;border:1px solid #78350f}
+  .vs-new{background:#052e16;border:1px solid #065f46}
+</style>
+</head>
+<body>
+
+<h1>V2: Scoop-Clamp Paddle Gripper</h1>
+<p class="sub">Paralel plaka + alt dudak tasarimi — koli & halka icin optimize edildi</p>
+
+<div class="specs">
+  <div class="sbox"><div class="v">0–13cm</div><div class="l">Aciklik Araligi</div></div>
+  <div class="sbox"><div class="v">Paralel</div><div class="l">Hareket Tipi</div></div>
+  <div class="sbox"><div class="v">MG90S</div><div class="l">Servo</div></div>
+  <div class="sbox"><div class="v">~18g</div><div class="l">Toplam Agirlik</div></div>
+  <div class="sbox"><div class="v">L-Dudak</div><div class="l">Alt Destek</div></div>
+</div>
+
+<!-- V1 vs V2 KARSILASTIRMA -->
+<div class="row">
+  <div class="card" style="max-width:1200px">
+    <h2>V1 vs V2 Karsilastirma</h2>
+    <div class="vs">
+      <div class="vs-col vs-old">
+        <b style="color:#fbbf24">V1: V-Sekilli Gripper</b> <span class="tag tag-old">ESKI</span><br>
+        &#x2717; V acisi: kucuk nesne ucta, buyuk nesne dipte kavranir — tutarsiz kuvvet<br>
+        &#x2717; Halka dis yuzeyinde kararsiz temas (noktasal)<br>
+        &#x2717; Alt destek yok — nesne asagi kayabilir<br>
+        &#x2717; 9cm koli icin dar temas yuzeyi
+      </div>
+      <div class="vs-col vs-new">
+        <b style="color:#34d399">V2: Scoop-Clamp Paddle</b> <span class="tag tag-new">YENI</span><br>
+        &#x2713; Paralel hareket: her boyutta esit kavrama kuvveti<br>
+        &#x2713; Genis duz plaka: koli yuzeyine tam temas<br>
+        &#x2713; Halka dis yuzeyinde genis temas (yanal)<br>
+        &#x2713; Alt dudak: nesneyi yerçekimine karsi destekler<br>
+        &#x2713; Silikon pad: kaymaz yuzey
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UST GORUNUM + YAN GORUNUM -->
+<div class="row">
+  <div class="card">
+    <h2>Ust Gorunum (Top View)</h2>
+    <canvas id="cvTop" width="520" height="440"></canvas>
+    <div class="ctrl">
+      <label>Gripper Aciklik: <span id="lbOpen">50</span>%</label>
+      <input type="range" id="slOpen" min="0" max="100" value="50">
+      <div class="pills">
+        <button id="bE" class="on" onclick="pick('empty')">Bos</button>
+        <button id="bK" onclick="pick('koli')">Koli 9cm</button>
+        <button id="bH" onclick="pick('halka')">Halka 11cm</button>
+      </div>
+    </div>
+    <div class="info">
+      <b>Paralel Plaka Mekanizmasi:</b> Rack-and-pinion (disli-kremayer) ile MG90S servodan tek yonde donme,
+      iki plakayi simetrik olarak acar/kapatir. Her iki plaka daima birbirine paralel kalir.
+      <br><br>
+      <b>Neden paralel?</b> V-gripper'da nesne boyutu degistikce kavrama noktasi da degisir (kucuk=uc, buyuk=dip).
+      Paralel plakada nesne boyutu farketmez — temas yuzeyi her zaman plakanin tam genisligi kadardir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Yan Gorunum (Side View) — L-Dudak Detayi</h2>
+    <canvas id="cvSide" width="520" height="440"></canvas>
+    <div class="ctrl">
+      <label>Kol Dirsek Acisi: <span id="lbElb">40</span>&deg;</label>
+      <input type="range" id="slElb" min="0" max="90" value="40">
+    </div>
+    <div class="info">
+      <b>L-Dudak (Scoop Lip):</b> Her plakanin alt kenarinda 12mm iceri donuk cikinti bulunur.
+      Bu dudak, kavranilan nesneyi alttan destekler — yerçekimiyle dusmeyi onler.
+      <br><br>
+      <b>Koli icin:</b> Dudaklar kolinin alt yuzeyine oturur, plakalar yanlari kavrar → 3 yuzey temas.<br>
+      <b>Halka icin:</b> Dudaklar halkanin alt kenarini destekler, plakalar dis yuzeyi kavrar.
+      <br><br>
+      <b>Silikon Pad:</b> 2mm kalinlikta, Shore A 40 sertlik. Surtumeyi ~3x arttirir.
+    </div>
+  </div>
+</div>
+
+<!-- KAVRAMA MODLARI -->
+<div class="row">
+  <div class="card" style="max-width:1200px">
+    <h2>Kavrama Modlari — Detayli Kesit Gorunumu</h2>
+    <canvas id="cvModes" width="1100" height="380"></canvas>
+    <div class="info" style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px">
+        <b>Koli Kavrama:</b><br>
+        - Plakalar kolinin 2 karsit yuzune temas<br>
+        - Alt dudaklar kolinin tabanini destekler<br>
+        - 3 yuzey temas = cok stabil<br>
+        - 50-100g yuk icin silikon pad yeterli<br>
+        - Istif sirasinda dusey birakma kolay
+      </div>
+      <div style="flex:1;min-width:180px">
+        <b>Halka Kavrama (Yandan):</b><br>
+        - Plakalar halka dis yuzeyini kavrar<br>
+        - Alt dudaklar halkanin alt kenarini tutar<br>
+        - Halka yatay pozisyonda tasinir<br>
+        - Kule uzerine dikey indirilir<br>
+        - Plakalar acilinca halka cubuga duser
+      </div>
+      <div style="flex:1;min-width:180px">
+        <b>Halka Birakma (Kule):</b><br>
+        - Kol, halkayi kule ustune pozisyonlar<br>
+        - Gripper acilir → dudaklar acilir<br>
+        - Halka yercekim ile cubuga duser<br>
+        - Cubuk capi 5cm &lt; halka ic capi 9cm<br>
+        - 2cm tolerans = hassas hizalama gereksiz
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MEKANIK DETAY -->
+<div class="row">
+  <div class="card" style="max-width:1200px">
+    <h2>Mekanik Detay — Rack-Pinion Mekanizmasi</h2>
+    <canvas id="cvMech" width="1100" height="300"></canvas>
+    <div class="info">
+      <b>Calisma prensibi:</b> MG90S servo miline bagli pinion (disli), iki karsi yone bakan rack (kremayer)
+      uzerinde doner. Servo saga donunce plakalar kapanir, sola donunce acilir. Simetrik hareket garanti edilir.
+      <br><br>
+      <b>Malzeme:</b> Plakalar 3D-print PLA veya lazer-kesim 3mm akrilik. Dudaklar plaka ile tek parca.
+      Rack-pinion 3D-print. Silikon padler yapistirilir.
+    </div>
+  </div>
+</div>
+
+<script>
+let mode='empty', openPct=50, elbDeg=40;
+const $=id=>document.getElementById(id);
+
+$('slOpen').oninput=()=>{openPct=+$('slOpen').value;$('lbOpen').textContent=openPct;draw()};
+$('slElb').oninput=()=>{elbDeg=+$('slElb').value;$('lbElb').textContent=elbDeg;draw()};
+
+function pick(m){
+  mode=m;
+  document.querySelectorAll('.pills button').forEach(b=>b.classList.remove('on'));
+  $('b'+{empty:'E',koli:'K',halka:'H'}[m]).classList.add('on');
+  if(m==='koli'){openPct=32;$('slOpen').value=32;$('lbOpen').textContent=32}
+  else if(m==='halka'){openPct=48;$('slOpen').value=48;$('lbOpen').textContent=48}
+  else{openPct=50;$('slOpen').value=50;$('lbOpen').textContent=50}
+  draw();
+}
+
+function grid(ctx,w,h){ctx.strokeStyle='#1e293b';ctx.lineWidth=.5;for(let x=0;x<=w;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<=h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}}
+
+function drawPlateTop(ctx,cx,cy,side,spread,fingerH){
+  const s=side==='L'?-1:1;
+  const px=cx+s*spread;
+  const pw=10, ph=fingerH;
+  // plate body
+  ctx.fillStyle='#475569';
+  ctx.fillRect(px-pw/2,cy-ph/2,pw,ph);
+  ctx.strokeStyle='#94a3b8';ctx.lineWidth=1.5;
+  ctx.strokeRect(px-pw/2,cy-ph/2,pw,ph);
+  // silicone pad (inner face)
+  ctx.fillStyle='#f87171';
+  const padX=s<0?px+pw/2-3:px-pw/2;
+  ctx.fillRect(padX,cy-ph/2+4,3,ph-8);
+  // lip indicator (bottom nub)
+  ctx.fillStyle='#34d399';
+  const lipX=s<0?px+pw/2-6:px-pw/2;
+  ctx.fillRect(lipX,cy+ph/2-2,6,6);
+  // lip label
+  ctx.fillStyle='#34d399';ctx.font='8px monospace';ctx.textAlign='center';
+  ctx.fillText('dudak',px,cy+ph/2+14);
+}
+
+function drawTop(){
+  const c=$('cvTop'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+  const cx=W/2,cy=H/2+20;
+  const spread=8+openPct/100*55;
+  const fH=100;
+
+  // servo body
+  ctx.fillStyle='#1e293b';ctx.strokeStyle='#334155';ctx.lineWidth=1;
+  roundRect(ctx,cx-18,cy-fH/2-35,36,28,4);
+  ctx.fillStyle='#34d399';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('MG90S',cx,cy-fH/2-18);
+
+  // rack housing
+  ctx.fillStyle='#334155';
+  ctx.fillRect(cx-spread-12,cy-fH/2-8,spread*2+24,10);
+  // rack lines
+  ctx.strokeStyle='#64748b';ctx.lineWidth=1;
+  for(let i=-spread;i<=spread;i+=6){ctx.beginPath();ctx.moveTo(cx+i,cy-fH/2-8);ctx.lineTo(cx+i,cy-fH/2+2);ctx.stroke()}
+  // pinion
+  ctx.beginPath();ctx.arc(cx,cy-fH/2-3,6,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+  ctx.strokeStyle='#d97706';ctx.lineWidth=1;ctx.stroke();
+
+  // plates
+  drawPlateTop(ctx,cx,cy,'L',spread,fH);
+  drawPlateTop(ctx,cx,cy,'R',spread,fH);
+
+  // parallel motion arrows
+  ctx.strokeStyle='#34d399';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(cx-spread+15,cy-fH/2-15);ctx.lineTo(cx-8,cy-fH/2-15);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+spread-15,cy-fH/2-15);ctx.lineTo(cx+8,cy-fH/2-15);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // object
+  if(mode==='koli'){
+    const ks=70;
+    ctx.fillStyle='rgba(217,161,60,.6)';
+    ctx.fillRect(cx-ks/2,cy-ks/2,ks,ks);
+    ctx.strokeStyle='#d9a13c';ctx.lineWidth=2;ctx.strokeRect(cx-ks/2,cy-ks/2,ks,ks);
+    // contact highlights
+    ctx.fillStyle='rgba(248,113,113,.3)';
+    ctx.fillRect(cx-ks/2,cy-ks/2+5,4,ks-10);
+    ctx.fillRect(cx+ks/2-4,cy-ks/2+5,4,ks-10);
+    ctx.fillStyle='#fff';ctx.font='bold 11px monospace';ctx.textAlign='center';
+    ctx.fillText('KOLI',cx,cy-2);ctx.font='10px monospace';ctx.fillText('9×9cm',cx,cy+12);
+    // dim
+    dimH(ctx,cx-ks/2,cx+ks/2,cy+ks/2+8,'9cm',16);
+  }else if(mode==='halka'){
+    const or=44,ir=36;
+    ctx.beginPath();ctx.arc(cx,cy,or,0,Math.PI*2);ctx.arc(cx,cy,ir,0,Math.PI*2,true);
+    ctx.fillStyle='rgba(74,222,128,.5)';ctx.fill();
+    ctx.beginPath();ctx.arc(cx,cy,or,0,Math.PI*2);ctx.strokeStyle='#4ade80';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.stroke();
+    // contact highlights on sides
+    ctx.strokeStyle='rgba(248,113,113,.6)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(cx,cy,or,-.4,.4);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,or,Math.PI-.4,Math.PI+.4);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 11px monospace';ctx.textAlign='center';
+    ctx.fillText('HALKA',cx,cy-2);ctx.font='10px monospace';ctx.fillText('ic:9 dis:11cm',cx,cy+12);
+    dimH(ctx,cx-or,cx+or,cy+or+8,'11cm',16);
+  }
+
+  // opening dim
+  const tipL=cx-spread,tipR=cx+spread;
+  dimH(ctx,tipL,tipR,cy+fH/2+8,(spread*2*.077).toFixed(1)+'cm aciklik',18);
+
+  // legend
+  ctx.font='9px monospace';ctx.textAlign='left';
+  ctx.fillStyle='#f87171';ctx.fillText('■ Silikon pad (kaymaz)',8,16);
+  ctx.fillStyle='#34d399';ctx.fillText('■ Alt dudak (scoop lip)',8,30);
+  ctx.fillStyle='#f59e0b';ctx.fillText('● Pinion (disli)',8,44);
+  ctx.fillStyle='#475569';ctx.fillText('■ Plaka (3D-print PLA)',8,58);
+}
+
+function drawSide(){
+  const c=$('cvSide'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const cx=W/2,baseY=80;
+  const eRad=elbDeg*Math.PI/180;
+
+  // upper arm
+  const armL=110;
+  ctx.strokeStyle='#64748b';ctx.lineWidth=12;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(cx,baseY);ctx.lineTo(cx,baseY+armL);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,baseY+armL,8,0,Math.PI*2);ctx.fillStyle='#34d399';ctx.fill();
+
+  // forearm
+  const foreL=75;
+  const fex=cx+Math.sin(eRad)*foreL,fey=baseY+armL+Math.cos(eRad)*foreL;
+  ctx.strokeStyle='#4b5563';ctx.lineWidth=10;
+  ctx.beginPath();ctx.moveTo(cx,baseY+armL);ctx.lineTo(fex,fey);ctx.stroke();
+
+  // gripper housing
+  const gx=fex,gy=fey;
+  ctx.save();ctx.translate(gx,gy);ctx.rotate(-eRad);
+
+  // servo block
+  ctx.fillStyle='#1e293b';roundRect(ctx,-14,-10,28,18,3);
+  ctx.fillStyle='#34d399';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('MG90S',0,3);
+
+  // rack
+  ctx.fillStyle='#334155';ctx.fillRect(-30,8,60,6);
+
+  const op=openPct/100;
+  const sp=6+op*22;
+
+  // LEFT plate (side view = L shape)
+  drawPlateSide(ctx,-sp,14,50);
+  // RIGHT plate
+  drawPlateSide(ctx,sp-8,14,50);
+
+  // Object between plates
+  if(mode==='koli'){
+    ctx.fillStyle='rgba(217,161,60,.65)';
+    ctx.fillRect(-28,18,56,48);
+    ctx.strokeStyle='#d9a13c';ctx.lineWidth=1.5;ctx.strokeRect(-28,18,56,48);
+    ctx.fillStyle='#fff';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText('KOLI',0,46);
+    // show lip support arrows
+    ctx.fillStyle='#34d399';ctx.font='8px monospace';
+    ctx.fillText('↑ dudak destegi ↑',0,74);
+  }else if(mode==='halka'){
+    ctx.strokeStyle='#4ade80';ctx.lineWidth=8;
+    ctx.beginPath();ctx.moveTo(-22,38);ctx.lineTo(22,38);ctx.stroke();
+    ctx.fillStyle='#4ade80';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText('HALKA (kesit)',0,52);
+    ctx.fillStyle='#34d399';ctx.font='8px monospace';
+    ctx.fillText('↑ dudak destegi ↑',0,74);
+  }
+
+  ctx.restore();
+
+  // Labels
+  ctx.fillStyle='#34d399';ctx.font='9px monospace';ctx.textAlign='left';
+  ctx.fillText('MG996R (omuz)',cx+14,baseY+5);
+  ctx.fillText('MG90S (dirsek)',cx+14,baseY+armL-5);
+
+  // Angle arc
+  ctx.beginPath();ctx.arc(cx,baseY+armL,22,Math.PI/2-eRad,Math.PI/2);
+  ctx.strokeStyle='#fbbf24';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#fbbf24';ctx.font='10px monospace';ctx.fillText(elbDeg+'°',cx+25,baseY+armL-8);
+}
+
+function drawPlateSide(ctx,x,y,h){
+  // vertical plate
+  ctx.fillStyle='#475569';
+  ctx.fillRect(x,y,8,h);
+  ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.strokeRect(x,y,8,h);
+  // silicone pad
+  ctx.fillStyle='#f87171';ctx.fillRect(x+2,y+4,4,h-8);
+  // L-lip (bottom)
+  ctx.fillStyle='#34d399';
+  ctx.fillRect(x-4,y+h,16,5);
+  ctx.strokeStyle='#059669';ctx.lineWidth=1;ctx.strokeRect(x-4,y+h,16,5);
+}
+
+function drawModes(){
+  const c=$('cvModes'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const configs=[
+    {x:140,label:'ACIK (Bos)',op:85,obj:null},
+    {x:370,label:'KOLI KAVRAMA',op:32,obj:'koli'},
+    {x:600,label:'HALKA KAVRAMA',op:48,obj:'halka'},
+    {x:860,label:'HALKA → KULE',op:75,obj:'release'}
+  ];
+
+  configs.forEach(cfg=>{
+    const cx=cfg.x,cy=100;
+    const sp=6+(cfg.op/100)*55;
+    const pH=100;
+
+    // Mini rack
+    ctx.fillStyle='#334155';ctx.fillRect(cx-sp-8,cy-6,sp*2+16,6);
+    // Pinion
+    ctx.beginPath();ctx.arc(cx,cy-3,4,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+
+    // Plates with lips
+    [-1,1].forEach(s=>{
+      const px=cx+s*sp;
+      // plate
+      ctx.fillStyle='#475569';ctx.fillRect(px-4,cy,8,pH);
+      ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.strokeRect(px-4,cy,8,pH);
+      // pad
+      ctx.fillStyle='#f87171';
+      const padOff=s<0?2:-2;
+      ctx.fillRect(px+padOff-1,cy+6,3,pH-12);
+      // lip
+      ctx.fillStyle='#34d399';
+      ctx.fillRect(px-8,cy+pH,16,5);
+      ctx.strokeStyle='#059669';ctx.lineWidth=.8;ctx.strokeRect(px-8,cy+pH,16,5);
+    });
+
+    // Object
+    if(cfg.obj==='koli'){
+      const ks=60;
+      ctx.fillStyle='rgba(217,161,60,.65)';
+      ctx.fillRect(cx-ks/2,cy+pH-ks+2,ks,ks);
+      ctx.strokeStyle='#d9a13c';ctx.lineWidth=1.5;ctx.strokeRect(cx-ks/2,cy+pH-ks+2,ks,ks);
+      // contact areas
+      ctx.fillStyle='rgba(248,113,113,.25)';
+      ctx.fillRect(cx-ks/2,cy+pH-ks+6,5,ks-10);
+      ctx.fillRect(cx+ks/2-5,cy+pH-ks+6,5,ks-10);
+      // bottom support
+      ctx.fillStyle='rgba(52,211,153,.25)';
+      ctx.fillRect(cx-ks/2,cy+pH-2,ks,5);
+      ctx.fillStyle='#fff';ctx.font='9px monospace';ctx.textAlign='center';
+      ctx.fillText('9cm',cx,cy+pH-ks/2+5);
+      // force arrows
+      ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;
+      arrow(ctx,cx-sp-15,cy+pH/2,cx-sp+2,cy+pH/2);
+      arrow(ctx,cx+sp+15,cy+pH/2,cx+sp-2,cy+pH/2);
+      ctx.strokeStyle='#34d399';
+      arrow(ctx,cx,cy+pH+18,cx,cy+pH+5);
+    }else if(cfg.obj==='halka'){
+      const or=38,ir=30;
+      const hy=cy+pH/2+10;
+      ctx.beginPath();ctx.arc(cx,hy,or,0,Math.PI*2);ctx.arc(cx,hy,ir,0,Math.PI*2,true);
+      ctx.fillStyle='rgba(74,222,128,.45)';ctx.fill();
+      ctx.beginPath();ctx.arc(cx,hy,or,0,Math.PI*2);ctx.strokeStyle='#4ade80';ctx.lineWidth=1.2;ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,hy,ir,0,Math.PI*2);ctx.stroke();
+      // contact
+      ctx.strokeStyle='rgba(248,113,113,.6)';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(cx,hy,or,-.35,.35);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,hy,or,Math.PI-.35,Math.PI+.35);ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='9px monospace';ctx.textAlign='center';
+      ctx.fillText('11cm',cx,hy+4);
+    }else if(cfg.obj==='release'){
+      // Pole
+      ctx.fillStyle='#64748b';
+      ctx.fillRect(cx-8,cy+20,16,pH+10);
+      ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.strokeRect(cx-8,cy+20,16,pH+10);
+      ctx.fillStyle='#94a3b8';ctx.font='8px monospace';ctx.textAlign='center';
+      ctx.fillText('KULE',cx,cy+15);ctx.fillText('5cm',cx+22,cy+60);
+      // Ring dropping
+      const or=38,ir=30;
+      const hy=cy+40;
+      ctx.beginPath();ctx.arc(cx,hy,or,0,Math.PI*2);ctx.arc(cx,hy,ir,0,Math.PI*2,true);
+      ctx.fillStyle='rgba(74,222,128,.35)';ctx.fill();
+      ctx.beginPath();ctx.arc(cx,hy,or,0,Math.PI*2);ctx.strokeStyle='#4ade80';ctx.lineWidth=1;ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,hy,ir,0,Math.PI*2);ctx.stroke();
+      // Drop arrow
+      ctx.strokeStyle='#fbbf24';ctx.lineWidth=1.5;
+      arrow(ctx,cx+or+5,hy,cx+or+5,hy+30);
+      ctx.fillStyle='#fbbf24';ctx.font='8px monospace';ctx.fillText('dusus',cx+or+14,hy+18);
+    }
+
+    // Label
+    ctx.fillStyle='#e2e8f0';ctx.font='bold 10px monospace';ctx.textAlign='center';
+    ctx.fillText(cfg.label,cx,cy+pH+30);
+    // opening
+    ctx.fillStyle='#fbbf24';ctx.font='9px monospace';
+    ctx.fillText((sp*2*.077).toFixed(1)+'cm',cx,cy+pH+44);
+  });
+}
+
+function drawMech(){
+  const c=$('cvMech'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  // Exploded view
+  const cx=W/2,cy=H/2;
+
+  // Title labels
+  ctx.fillStyle='#e2e8f0';ctx.font='bold 11px monospace';ctx.textAlign='center';
+  ctx.fillText('PATLAK GORUNUM (Exploded View)',cx,20);
+
+  // Servo
+  const sx=cx-200;
+  ctx.fillStyle='#1e293b';roundRect(ctx,sx-20,cy-25,40,50,4);
+  ctx.fillStyle='#34d399';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('MG90S',sx,cy-5);ctx.fillText('SERVO',sx,cy+8);
+  // shaft
+  ctx.fillStyle='#f59e0b';ctx.fillRect(sx+20,cy-3,30,6);
+
+  // Pinion
+  const px=sx+65;
+  ctx.beginPath();ctx.arc(px,cy,14,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+  ctx.strokeStyle='#d97706';ctx.lineWidth=2;ctx.stroke();
+  // gear teeth
+  for(let a=0;a<Math.PI*2;a+=Math.PI/5){
+    ctx.fillStyle='#d97706';
+    ctx.fillRect(px+Math.cos(a)*12-2,cy+Math.sin(a)*12-2,4,4);
+  }
+  ctx.fillStyle='#fff';ctx.font='8px monospace';ctx.fillText('PINION',px,cy+28);
+
+  // Top rack (goes left = left plate)
+  const rw=180;
+  ctx.fillStyle='#475569';ctx.fillRect(px+20,cy-18,rw,8);
+  // teeth
+  for(let i=0;i<rw;i+=8){ctx.fillStyle='#64748b';ctx.fillRect(px+20+i,cy-10,4,4)}
+  // arrow
+  ctx.strokeStyle='#38bdf8';ctx.lineWidth=1.5;arrow(ctx,px+rw+20,cy-14,px+rw+50,cy-14);
+  ctx.fillStyle='#38bdf8';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('→ SOL PLAKA',px+rw+55,cy-10);
+
+  // Bottom rack (goes right = right plate)
+  ctx.fillStyle='#475569';ctx.fillRect(px+20,cy+10,rw,8);
+  for(let i=0;i<rw;i+=8){ctx.fillStyle='#64748b';ctx.fillRect(px+20+i,cy+6,4,4)}
+  ctx.strokeStyle='#fb923c';ctx.lineWidth=1.5;arrow(ctx,px+rw+20,cy+14,px+rw+50,cy+14);
+  ctx.fillStyle='#fb923c';ctx.font='8px monospace';ctx.fillText('→ SAG PLAKA',px+rw+55,cy+18);
+
+  // Direction indicator
+  ctx.fillStyle='#34d399';ctx.font='10px monospace';ctx.textAlign='center';
+  ctx.fillText('← KAPAT',px,cy-35);ctx.fillText('AC →',px,cy+45);
+
+  // Plate assembly (right side)
+  const ax=px+rw+140;
+  // Left plate
+  ctx.fillStyle='#475569';
+  ctx.fillRect(ax-50,cy-70,10,90);
+  ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.strokeRect(ax-50,cy-70,10,90);
+  ctx.fillStyle='#f87171';ctx.fillRect(ax-48,cy-64,4,78);
+  ctx.fillStyle='#34d399';ctx.fillRect(ax-54,cy+20,18,6);
+  ctx.fillStyle='#38bdf8';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('SOL',ax-45,cy-76);
+
+  // Right plate
+  ctx.fillStyle='#475569';
+  ctx.fillRect(ax+40,cy-70,10,90);
+  ctx.strokeStyle='#94a3b8';ctx.strokeRect(ax+40,cy-70,10,90);
+  ctx.fillStyle='#f87171';ctx.fillRect(ax+44,cy-64,4,78);
+  ctx.fillStyle='#34d399';ctx.fillRect(ax+36,cy+20,18,6);
+  ctx.fillStyle='#fb923c';ctx.font='8px monospace';ctx.fillText('SAG',ax+45,cy-76);
+
+  // Assembly label
+  ctx.fillStyle='#e2e8f0';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('MONTE GORUNUM',ax-5,cy+50);
+
+  // Legend
+  ctx.textAlign='left';ctx.font='9px monospace';
+  ctx.fillStyle='#f87171';ctx.fillText('■ Silikon pad',20,H-40);
+  ctx.fillStyle='#34d399';ctx.fillText('■ L-Dudak (scoop)',20,H-25);
+  ctx.fillStyle='#f59e0b';ctx.fillText('■ Pinion + shaft',180,H-40);
+  ctx.fillStyle='#475569';ctx.fillText('■ Rack + Plaka',180,H-25);
+}
+
+function arrow(ctx,x1,y1,x2,y2){
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-8*Math.cos(a-.4),y2-8*Math.sin(a-.4));ctx.lineTo(x2-8*Math.cos(a+.4),y2-8*Math.sin(a+.4));ctx.closePath();ctx.fill();
+}
+function dimH(ctx,x1,x2,y,label,off){
+  ctx.save();ctx.strokeStyle='#fbbf24';ctx.fillStyle='#fbbf24';ctx.lineWidth=1;ctx.font='10px monospace';ctx.textAlign='center';
+  ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,y-4);ctx.lineTo(x1,y+4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,y-4);ctx.lineTo(x2,y+4);ctx.stroke();
+  ctx.fillText(label,(x1+x2)/2,y+off);ctx.restore();
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();
+}
+
+function draw(){drawTop();drawSide();drawModes();drawMech()}
+draw();
+</script>
+</body>
+</html>

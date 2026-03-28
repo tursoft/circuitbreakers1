@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>V2 Zipline Mekanizmasi</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#111827;color:#e0e0e0;font-family:'Segoe UI',sans-serif}
+  h1{text-align:center;padding:16px;color:#f97316;font-size:1.3em}
+  .sub{text-align:center;color:#888;font-size:.85em;margin-top:-10px;margin-bottom:12px}
+  .row{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;padding:8px 16px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;flex:1;min-width:340px;max-width:620px}
+  .card h2{color:#f97316;font-size:1em;margin-bottom:10px;text-align:center}
+  canvas{display:block;margin:0 auto;background:#0f172a;border-radius:8px}
+  .ctrl{margin-top:10px;text-align:center}
+  .ctrl label{display:block;margin:6px 0 2px;font-size:.82em;color:#94a3b8}
+  input[type=range]{width:92%;accent-color:#f97316}
+  .info{margin-top:10px;padding:10px;background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;font-size:.8em;line-height:1.65}
+  .info b{color:#f97316}
+  .pills{display:flex;gap:6px;justify-content:center;margin:10px 0;flex-wrap:wrap}
+  .pills button{padding:5px 14px;border:1px solid #f97316;background:transparent;color:#f97316;border-radius:6px;cursor:pointer;font-size:.82em;transition:.15s}
+  .pills button.on,.pills button:hover{background:#f97316;color:#111827}
+  .specs{display:flex;gap:12px;justify-content:center;margin:8px 16px;flex-wrap:wrap}
+  .sbox{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:7px 14px;text-align:center;font-size:.78em}
+  .sbox .v{font-size:1.3em;color:#f97316;font-weight:bold}
+  .sbox .l{color:#64748b;font-size:.82em}
+  .status{text-align:center;margin:8px 0;padding:6px;border-radius:6px;font-weight:600;font-size:.9em;background:#1e293b;border:1px solid #334155}
+</style>
+</head>
+<body>
+
+<h1>V2: Zipline Mekanizmasi — Teleskopik Direk + Makara</h1>
+<p class="sub">3 segmentli teleskopik direk + doner makara + emniyet mandali</p>
+
+<div class="specs">
+  <div class="sbox"><div class="v">90cm</div><div class="l">Erisim Yuk.</div></div>
+  <div class="sbox"><div class="v">~30cm</div><div class="l">Katlanmis</div></div>
+  <div class="sbox"><div class="v">MG996R</div><div class="l">Kaldirma Servo</div></div>
+  <div class="sbox"><div class="v">~80g</div><div class="l">Mek. Agirlik</div></div>
+  <div class="sbox"><div class="v">~700g</div><div class="l">Robot Tasima</div></div>
+  <div class="sbox"><div class="v">1m</div><div class="l">Kayis Mesafe</div></div>
+</div>
+
+<div class="row">
+  <!-- ANA SIMULASYON -->
+  <div class="card" style="max-width:700px">
+    <h2>Zipline Gecis Simulasyonu</h2>
+    <canvas id="cvMain" width="660" height="440"></canvas>
+    <div id="stat" class="status" style="color:#f97316">Faz secin veya animasyonu baslatin</div>
+    <div class="pills">
+      <button class="ph on" data-p="0" onclick="goP(0)">1. Katlanmis</button>
+      <button class="ph" data-p="1" onclick="goP(1)">2. Kaldirma</button>
+      <button class="ph" data-p="2" onclick="goP(2)">3. Tutunma</button>
+      <button class="ph" data-p="3" onclick="goP(3)">4. Kayis</button>
+      <button class="ph" data-p="4" onclick="goP(4)">5. Inis</button>
+      <button id="btnAnim" onclick="toggleAnim()" style="border-color:#22c55e;color:#22c55e">&#9654; Oynat</button>
+    </div>
+    <div class="ctrl">
+      <label>Ilerleme: <span id="lbProg">0</span>%</label>
+      <input type="range" id="slProg" min="0" max="100" value="0">
+    </div>
+  </div>
+
+  <!-- MAKARA DETAY -->
+  <div class="card">
+    <h2>Makara + Mandal Detayi</h2>
+    <canvas id="cvHook" width="500" height="340"></canvas>
+    <div class="info">
+      <b>Doner Makara:</b><br>
+      - Iki flanslı rulmanli makara (cap 3cm)<br>
+      - Tel, flanslarin arasindaki olukta oturur<br>
+      - Surtunmeyi minimize eder, kayis hizi artar<br><br>
+      <b>Emniyet Mandali:</b><br>
+      - Yay yuklu L-mandal, makara yukari itildiginde acilir<br>
+      - Tel oluga oturduktan sonra yay mandali kapatir<br>
+      - Manuel acma gerektirmez — otomatik kilitleme<br>
+      - Cozme: inis sonrasi servo mandal pinini iter<br><br>
+      <b>Teleskopik Direk (3 segment):</b><br>
+      - Dis boru: 12mm OD aluminyum (segment 1)<br>
+      - Orta boru: 10mm OD (segment 2)<br>
+      - Ic boru: 8mm OD (segment 3 + makara montaj)<br>
+      - Bahar kilitleri her segmentte (tam acildiginda klik)
+    </div>
+  </div>
+</div>
+
+<!-- KATLANMA DETAY -->
+<div class="row">
+  <div class="card" style="max-width:1200px">
+    <h2>Katlanma / Acilma Karsilastirmasi</h2>
+    <canvas id="cvFold" width="1100" height="320"></canvas>
+    <div class="info" style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <b>Katlanmis (Baslangic):</b><br>
+        - Direk robot ustunde yatay<br>
+        - Toplam yukseklik: ~20cm (robot) + ~5cm (direk) = ~25cm<br>
+        - 60cm sinirinin cok altinda ✓
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Dik Pozisyon (Zipline icin):</b><br>
+        - MG996R servo 90° dondurur<br>
+        - Teleskopik direk uzar: 30cm → 90cm<br>
+        - Makara tele ulasir
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Guvenlik:</b><br>
+        - Acilmadan once robot DURMALI<br>
+        - Kumandadan tek buton ile tetikleme<br>
+        - Direk tam acilmadan mandal calismaz
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let prog=0,anim=false,aId=null;
+const $=id=>document.getElementById(id);
+const sl=$('slProg');
+
+sl.oninput=()=>{prog=+sl.value;$('lbProg').textContent=prog;upPhase();draw()};
+
+function goP(p){stopA();prog=p*25;sl.value=prog;$('lbProg').textContent=prog;upPhase();draw()}
+function toggleAnim(){anim?stopA():startA()}
+function startA(){anim=true;$('btnAnim').textContent='⏸ Durdur';prog=0;tick()}
+function stopA(){anim=false;if(aId)cancelAnimationFrame(aId);$('btnAnim').textContent='▶ Oynat'}
+function tick(){prog+=.35;if(prog>100){prog=100;stopA()}sl.value=prog;$('lbProg').textContent=Math.round(prog);upPhase();draw();if(anim)aId=requestAnimationFrame(tick)}
+
+function upPhase(){
+  const p=prog<20?0:prog<40?1:prog<60?2:prog<80?3:4;
+  document.querySelectorAll('.ph').forEach((b,i)=>b.classList.toggle('on',i===p));
+  const m=['Katlanmis — direk yatay, robot hazir pozisyonda',
+    'Kaldirma — servo diregi 90° dikeye kaldiriyor, teleskop uzuyor',
+    'Tutunma — makara zipline teline oturdu, mandal kilitledi',
+    'Kayis — robot zipline uzerinde hedefe kayiyor',
+    'Inis — robot karsiya ulasti, direk katlanir'][p];
+  $('stat').textContent=m;
+}
+
+function grid(ctx,w,h){ctx.strokeStyle='#1e293b';ctx.lineWidth=.4;for(let x=0;x<=w;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<=h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}}
+
+function drawMain(){
+  const c=$('cvMain'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const gnd=H-40, sc=3.8;
+  // ground
+  ctx.fillStyle='#1c1917';ctx.fillRect(0,gnd,W,40);
+  ctx.strokeStyle='#44403c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gnd);ctx.lineTo(W,gnd);ctx.stroke();
+
+  // wire
+  const wsx=130,wsy=gnd-90*sc,wex=530,wey=gnd-70*sc;
+  ctx.strokeStyle='#71717a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(wsx,wsy);ctx.lineTo(wex,wey);ctx.stroke();
+  // poles
+  ctx.strokeStyle='#52525b';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(wsx,gnd);ctx.lineTo(wsx,wsy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(wex,gnd);ctx.lineTo(wex,wey);ctx.stroke();
+  // labels
+  ctx.fillStyle='#fbbf24';ctx.font='11px monospace';ctx.textAlign='right';
+  ctx.fillText('90cm',wsx-8,wsy+4);ctx.fillText('70cm',wex-8,wey+4);
+  ctx.fillStyle='#71717a';ctx.font='10px monospace';ctx.textAlign='center';
+  ctx.fillText('~1m zipline hatti',(wsx+wex)/2,wsy-12);
+
+  // compute robot state
+  const sub=(prog%20)/20;
+  let rx,ry,pa,pl,hooked;
+
+  if(prog<20){rx=wsx-20;ry=gnd;pa=Math.PI/2;pl=30;hooked=false}
+  else if(prog<40){rx=wsx-20;ry=gnd;pa=Math.PI/2*(1-sub);pl=30+sub*((90*sc)-30);hooked=false}
+  else if(prog<60){rx=wsx-20;ry=gnd;pa=0;pl=90*sc;hooked=true}
+  else if(prog<80){
+    const t=sub;rx=wsx+t*(wex-wsx);
+    ry=wsy+t*(wey-wsy)+18;pa=-.03;pl=18;hooked=true;
+  }else{
+    const t=sub;rx=wex;ry=wey+18+t*(gnd-wey-18);
+    pa=t*Math.PI/2;pl=18+t*15;hooked=t<.5;
+  }
+
+  // robot body
+  const rw=56,rh=22;
+  ctx.fillStyle='#1e3a5f';
+  ctx.fillRect(rx-rw/2,ry-rh,rw,rh);
+  ctx.strokeStyle='#3b82f6';ctx.lineWidth=1.5;ctx.strokeRect(rx-rw/2,ry-rh,rw,rh);
+  // wheels
+  ctx.fillStyle='#27272a';
+  [rx-20,rx+20].forEach(wx=>{ctx.beginPath();ctx.arc(wx,ry,9,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#52525b';ctx.lineWidth=1.5;ctx.stroke()});
+  ctx.fillStyle='#e2e8f0';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText('ROBOT',rx,ry-rh/2+3);
+
+  // pole
+  const pbx=rx,pby=ry-rh;
+  const ptx=pbx+Math.sin(pa)*pl,pty=pby-Math.cos(pa)*pl;
+  // 3 segment colors
+  const segs=[[0,.33,'#52525b',5],[.33,.66,'#71717a',4],[.66,1,'#a1a1aa',3]];
+  segs.forEach(([t1,t2,col,w])=>{
+    ctx.strokeStyle=col;ctx.lineWidth=w;ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(pbx+(ptx-pbx)*t1,pby+(pty-pby)*t1);
+    ctx.lineTo(pbx+(ptx-pbx)*t2,pby+(pty-pby)*t2);
+    ctx.stroke();
+  });
+
+  // hook
+  if(pl>25){
+    ctx.beginPath();ctx.arc(ptx,pty,7,0,Math.PI*2);
+    ctx.fillStyle=hooked?'#22c55e':'#f97316';ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.2;ctx.stroke();
+    // flanges
+    ctx.strokeStyle=hooked?'#166534':'#9a3412';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ptx-9,pty-3);ctx.lineTo(ptx-9,pty+3);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ptx+9,pty-3);ctx.lineTo(ptx+9,pty+3);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='7px monospace';ctx.textAlign='center';
+    ctx.fillText(hooked?'KİLİTLİ':'MAKARA',ptx,pty+18);
+  }
+
+  // servo label
+  ctx.fillStyle='#f97316';ctx.font='8px monospace';ctx.textAlign='left';
+  if(prog<60)ctx.fillText('MG996R',pbx+8,pby-5);
+
+  // 60cm limit at start
+  if(prog<15){
+    const ly=gnd-60*sc;
+    ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(rx-40,ly);ctx.lineTo(rx+40,ly);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#ef4444';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('60cm siniri',rx,ly-5);
+  }
+}
+
+function drawHook(){
+  const c=$('cvHook'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const cx=W/2,cy=H/2-20;
+
+  // wire
+  ctx.strokeStyle='#71717a';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(40,cy-10);ctx.lineTo(W-40,cy-10);ctx.stroke();
+  ctx.fillStyle='#71717a';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('ZIPLINE TELI',cx,cy-28);
+
+  // pulley (detailed)
+  // outer rim
+  ctx.beginPath();ctx.arc(cx,cy-10,20,0,Math.PI*2);
+  ctx.fillStyle='#27272a';ctx.fill();ctx.strokeStyle='#f97316';ctx.lineWidth=2.5;ctx.stroke();
+  // groove
+  ctx.beginPath();ctx.arc(cx,cy-10,20,-.25,.25);ctx.strokeStyle='#44403c';ctx.lineWidth=5;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy-10,20,Math.PI-.25,Math.PI+.25);ctx.strokeStyle='#44403c';ctx.lineWidth=5;ctx.stroke();
+  // flanges
+  ctx.strokeStyle='#f97316';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(cx-24,cy-18);ctx.lineTo(cx-24,cy-2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+24,cy-18);ctx.lineTo(cx+24,cy-2);ctx.stroke();
+  // bearing
+  ctx.beginPath();ctx.arc(cx,cy-10,5,0,Math.PI*2);ctx.fillStyle='#64748b';ctx.fill();
+  // axle
+  ctx.fillStyle='#a1a1aa';ctx.fillRect(cx-2,cy-12,4,4);
+
+  // safety latch (mandal)
+  ctx.strokeStyle='#ef4444';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(cx-28,cy+8);ctx.quadraticCurveTo(cx-38,cy-15,cx-22,cy-35);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+28,cy+8);ctx.quadraticCurveTo(cx+38,cy-15,cx+22,cy-35);ctx.stroke();
+  // spring indicators
+  ctx.strokeStyle='#fbbf24';ctx.lineWidth=1;
+  zigzag(ctx,cx-30,cy+8,cx-30,cy+22);
+  zigzag(ctx,cx+30,cy+8,cx+30,cy+22);
+
+  // mount plate
+  ctx.fillStyle='#334155';roundRect(ctx,cx-22,cy+22,44,12,3);
+  ctx.fillStyle='#94a3b8';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('MONTAJ',cx,cy+31);
+
+  // pole segments
+  ctx.strokeStyle='#a1a1aa';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(cx,cy+34);ctx.lineTo(cx,cy+70);ctx.stroke();
+  ctx.strokeStyle='#71717a';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(cx,cy+70);ctx.lineTo(cx,cy+110);ctx.stroke();
+  ctx.strokeStyle='#52525b';ctx.lineWidth=6;
+  ctx.beginPath();ctx.moveTo(cx,cy+110);ctx.lineTo(cx,cy+150);ctx.stroke();
+
+  // segment labels
+  ctx.fillStyle='#a1a1aa';ctx.font='8px monospace';ctx.textAlign='left';
+  ctx.fillText('8mm (ic)',cx+10,cy+52);
+  ctx.fillText('10mm (orta)',cx+10,cy+90);
+  ctx.fillText('12mm (dis)',cx+10,cy+130);
+
+  // annotations
+  ctx.font='9px monospace';ctx.textAlign='left';
+  ctx.fillStyle='#f97316';ctx.fillText('Flanslı makara (cap 3cm)',cx+30,cy-5);
+  ctx.fillStyle='#ef4444';ctx.fillText('Yay yuklu emniyet mandali',cx+30,cy+12);
+  ctx.fillStyle='#fbbf24';ctx.fillText('Geri donme yayi',cx+30,cy+26);
+}
+
+function drawFold(){
+  const c=$('cvFold'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const gnd=H-35,sc=2.8;
+  ctx.fillStyle='#1c1917';ctx.fillRect(0,gnd,W,35);
+
+  // --- STATE 1: Katlanmis ---
+  drawRobotState(ctx,140,gnd,sc,'KATLANMIS',{poleAngle:Math.PI/2,poleLen:28,extended:false});
+
+  // --- STATE 2: Kaldiriliyor ---
+  drawRobotState(ctx,360,gnd,sc,'KALDIRILIYOR',{poleAngle:Math.PI/4,poleLen:60,extended:false});
+
+  // --- STATE 3: Tam Acik ---
+  drawRobotState(ctx,580,gnd,sc,'TAM ACIK (90cm)',{poleAngle:0,poleLen:90*sc,extended:true});
+
+  // --- STATE 4: Zipline'da ---
+  const sx=820,wy=gnd-70*sc;
+  // mini wire
+  ctx.strokeStyle='#71717a';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(sx-60,wy);ctx.lineTo(sx+60,wy);ctx.stroke();
+  // robot hanging
+  ctx.fillStyle='#1e3a5f';ctx.fillRect(sx-24,wy+14,48,18);
+  ctx.strokeStyle='#3b82f6';ctx.lineWidth=1;ctx.strokeRect(sx-24,wy+14,48,18);
+  ctx.fillStyle='#27272a';[sx-16,sx+16].forEach(wx=>{ctx.beginPath();ctx.arc(wx,wy+36,6,0,Math.PI*2);ctx.fill()});
+  // hook on wire
+  ctx.beginPath();ctx.arc(sx,wy,5,0,Math.PI*2);ctx.fillStyle='#22c55e';ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();
+  // short pole
+  ctx.strokeStyle='#a1a1aa';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,wy+5);ctx.lineTo(sx,wy+14);ctx.stroke();
+
+  ctx.fillStyle='#22c55e';ctx.font='bold 9px monospace';ctx.textAlign='center';
+  ctx.fillText('ZIPLINE GECIS',sx,wy+52);
+
+  // 60cm limit line across all
+  const limY=gnd-60*sc;
+  ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(239,68,68,.4)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(30,limY);ctx.lineTo(W-30,limY);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(239,68,68,.6)';ctx.font='9px monospace';ctx.textAlign='left';
+  ctx.fillText('60cm baslangic siniri',32,limY-4);
+}
+
+function drawRobotState(ctx,x,gnd,sc,label,opts){
+  const rw=48,rh=18;
+  // body
+  ctx.fillStyle='#1e3a5f';ctx.fillRect(x-rw/2,gnd-rh,rw,rh);
+  ctx.strokeStyle='#3b82f6';ctx.lineWidth=1;ctx.strokeRect(x-rw/2,gnd-rh,rw,rh);
+  // wheels
+  ctx.fillStyle='#27272a';
+  [x-18,x+18].forEach(wx=>{ctx.beginPath();ctx.arc(wx,gnd,6,0,Math.PI*2);ctx.fill()});
+
+  // pole
+  const pbx=x,pby=gnd-rh;
+  const ptx=pbx+Math.sin(opts.poleAngle)*opts.poleLen;
+  const pty=pby-Math.cos(opts.poleAngle)*opts.poleLen;
+
+  if(opts.extended){
+    [[0,.33,'#52525b',5],[.33,.66,'#71717a',4],[.66,1,'#a1a1aa',3]].forEach(([t1,t2,col,w])=>{
+      ctx.strokeStyle=col;ctx.lineWidth=w;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(pbx+(ptx-pbx)*t1,pby+(pty-pby)*t1);ctx.lineTo(pbx+(ptx-pbx)*t2,pby+(pty-pby)*t2);ctx.stroke();
+    });
+  }else{
+    ctx.strokeStyle='#71717a';ctx.lineWidth=4;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(pbx,pby);ctx.lineTo(ptx,pty);ctx.stroke();
+  }
+
+  // hook
+  ctx.beginPath();ctx.arc(ptx,pty,4,0,Math.PI*2);ctx.fillStyle='#f97316';ctx.fill();
+
+  ctx.fillStyle='#e2e8f0';ctx.font='bold 9px monospace';ctx.textAlign='center';
+  ctx.fillText(label,x,gnd+18);
+}
+
+function zigzag(ctx,x1,y1,x2,y2){
+  const steps=4,dx=(x2-x1)/steps,dy=(y2-y1)/steps;
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  for(let i=0;i<steps;i++){
+    const mx=x1+dx*(i+.5)+(i%2?-4:4);
+    const my=y1+dy*(i+.5);
+    ctx.lineTo(mx,my);
+  }
+  ctx.lineTo(x2,y2);ctx.stroke();
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill()}
+
+function draw(){drawMain();drawHook();drawFold()}
+draw();
+</script>
+</body>
+</html>

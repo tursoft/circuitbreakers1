@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>V2 Gorev Simulasyonu - Scoop-Clamp ile Koli & Halka</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#111827;color:#e0e0e0;font-family:'Segoe UI',sans-serif}
+  h1{text-align:center;padding:14px;color:#34d399;font-size:1.25em}
+  .row{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:8px 14px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;flex:1;min-width:330px;max-width:580px}
+  .card h2{color:#34d399;font-size:1em;margin-bottom:8px;text-align:center}
+  canvas{display:block;margin:0 auto;background:#0f172a;border-radius:8px}
+  .ctrl{margin-top:8px;text-align:center}
+  .ctrl label{display:block;margin:5px 0 2px;font-size:.82em;color:#94a3b8}
+  input[type=range]{width:92%;accent-color:#34d399}
+  .info{margin-top:8px;padding:8px;background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;font-size:.78em;line-height:1.6}
+  .info b{color:#34d399}
+  .score{text-align:center;margin:8px 0}
+  .score .v{font-size:1.8em;color:#22c55e;font-weight:bold}
+  .score .l{font-size:.82em;color:#64748b}
+</style>
+</head>
+<body>
+
+<h1>V2: Gorev Simulasyonu — Scoop-Clamp Gripper ile Koli & Halka Islemleri</h1>
+
+<div class="row">
+  <!-- KOLI GOREV -->
+  <div class="card">
+    <h2>Gorev 1: Koli Tasima & Dizme (40p)</h2>
+    <canvas id="cvK" width="520" height="400"></canvas>
+    <div class="ctrl">
+      <label>Tasinan Koli: <span id="lbK">0</span>/4</label>
+      <input type="range" id="slK" min="0" max="4" value="0" step="1">
+    </div>
+    <div class="score"><div class="v" id="scK">0</div><div class="l">puan / 40</div></div>
+    <div class="info">
+      <b>Scoop-Clamp ile Koli Tasima:</b><br>
+      1. Robot koliyi yanlardan yaklasarak plakalar arasina alir<br>
+      2. Alt dudaklar (L-lip) kolinin tabanini destekler — dusme riski yok<br>
+      3. Silikon padler yuzey suturmesini arttirir<br>
+      4. Toplama merkezine goturulup dikey olarak birakilir<br>
+      5. Plakalar acilir → koli 12x12cm alana oturur<br>
+      <br><b>V1'e gore avantaj:</b> 3 yuzey temas (yan+yan+alt) vs V1'in 2 nokta temasi
+    </div>
+  </div>
+
+  <!-- HALKA GOREV -->
+  <div class="card">
+    <h2>Gorev 3: Halka Dizme — Kule Gecirme (35p)</h2>
+    <canvas id="cvH" width="520" height="400"></canvas>
+    <div class="ctrl">
+      <label>Dizilen Halka: <span id="lbH">0</span>/7</label>
+      <input type="range" id="slH" min="0" max="7" value="0" step="1">
+    </div>
+    <div class="score"><div class="v" id="scH">0</div><div class="l">puan / 35</div></div>
+    <div class="info">
+      <b>Scoop-Clamp ile Halka Gecirme:</b><br>
+      1. Plakalar halkanin dis yuzeyini (11cm) kavrar<br>
+      2. Alt dudaklar halkanin alt kenarini destekler<br>
+      3. Kol, halkayi kule ustune tasir (yatay pozisyon)<br>
+      4. Kol halkayi cubugun tam uzerine hizalar<br>
+      5. Plakalar acilir → halka yercekimi ile cubuga duser<br>
+      <br><b>Tolerans:</b> Kule capi 5cm, halka ic capi 9cm → 2cm tolerans her yonde.
+      Bu, hassas pozisyonlama ihtiyacini onemli olcude azaltir.
+    </div>
+  </div>
+</div>
+
+<!-- KOL ERISIM -->
+<div class="row">
+  <div class="card" style="max-width:1200px">
+    <h2>Robotik Kol Erisim Analizi — V2 Gripper ile</h2>
+    <canvas id="cvA" width="1100" height="380"></canvas>
+    <div class="ctrl">
+      <label>Omuz: <span id="lbSh">50</span>&deg;</label>
+      <input type="range" id="slSh" min="0" max="135" value="50">
+      <label>Dirsek: <span id="lbEl">25</span>&deg;</label>
+      <input type="range" id="slEl" min="-30" max="90" value="25">
+      <label>Gripper Aciklik: <span id="lbGr">40</span>%</label>
+      <input type="range" id="slGr" min="0" max="100" value="40">
+    </div>
+    <div class="info" style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <b>Kol Segmentleri:</b><br>
+        - Omuz → Dirsek: 12cm (MG996R)<br>
+        - Dirsek → Bilek: 10cm (MG90S)<br>
+        - Gripper: 7cm (MG90S)<br>
+        - Robot sase: ~10cm yukseklik
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Erisim Hedefleri:</b><br>
+        - Zemin: koli/halka alma (0cm)<br>
+        - 4. koli yerlestirme: 36cm<br>
+        - Enerji kulesi: 30cm<br>
+        - Max erisim: ~39cm ✓
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Gripper Durum:</b><br>
+        - Acik: nesne yaklasma<br>
+        - Kapali (koli): ~9cm aciklik<br>
+        - Kapali (halka): ~11cm aciklik<br>
+        - L-dudak her durumda aktif
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+$('slK').oninput=$('slH').oninput=$('slSh').oninput=$('slEl').oninput=$('slGr').oninput=drawAll;
+
+function grid(ctx,w,h){ctx.strokeStyle='#1e293b';ctx.lineWidth=.4;for(let x=0;x<=w;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<=h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}}
+
+function drawK(){
+  const c=$('cvK'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+  const n=+$('slK').value;$('lbK').textContent=n;$('scK').textContent=n*10;
+  const gnd=H-35,s=3.2;
+
+  ctx.fillStyle='#1c1917';ctx.fillRect(0,gnd,W,35);
+
+  // dagitim
+  const dx=55;
+  ctx.fillStyle='#14532d';ctx.fillRect(dx,gnd-45*s,14*s,45*s);
+  ctx.strokeStyle='#166534';ctx.lineWidth=1;ctx.strokeRect(dx,gnd-45*s,14*s,45*s);
+  ctx.fillStyle='#22c55e';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('DAGITIM',dx+7*s,gnd-45*s-5);
+
+  for(let i=n;i<4;i++){
+    const ky=gnd-(i+1)*9*s;
+    ctx.fillStyle='#d97706';ctx.fillRect(dx+2.5*s,ky,9*s,9*s);
+    ctx.strokeStyle='#b45309';ctx.lineWidth=1;ctx.strokeRect(dx+2.5*s,ky,9*s,9*s);
+    ctx.fillStyle='#fff';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(i+1+'',dx+7*s,ky+5*s);
+  }
+
+  // toplama
+  const tx=W-130;
+  ctx.fillStyle='rgba(52,211,153,.08)';ctx.fillRect(tx,gnd-50*s,12*s,50*s);
+  ctx.strokeStyle='#34d399';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+  ctx.strokeRect(tx,gnd-50*s,12*s,50*s);ctx.setLineDash([]);
+  ctx.fillStyle='#34d399';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('TOPLAMA (12x12cm)',tx+6*s,gnd-50*s-5);
+
+  for(let i=0;i<n;i++){
+    const ky=gnd-(i+1)*9*s;
+    ctx.fillStyle='#f59e0b';ctx.fillRect(tx+1.5*s,ky,9*s,9*s);
+    ctx.strokeStyle='#d97706';ctx.lineWidth=1.5;ctx.strokeRect(tx+1.5*s,ky,9*s,9*s);
+    ctx.fillStyle='#fff';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText(i+1+'',tx+6*s,ky+5*s);
+  }
+
+  if(n>0){
+    ctx.fillStyle='#fbbf24';ctx.font='10px monospace';ctx.textAlign='left';
+    ctx.fillText(n*9+'cm',tx+13*s,gnd-n*9*s/2);
+  }
+
+  // gripper illustration (grabbing a koli)
+  if(n<4){
+    const gx=W/2,gy=gnd-9*s/2;
+    // koli in gripper
+    ctx.fillStyle='rgba(217,119,6,.5)';ctx.fillRect(gx-9*s/2,gnd-9*s,9*s,9*s);
+    ctx.strokeStyle='#d97706';ctx.lineWidth=1;ctx.strokeRect(gx-9*s/2,gnd-9*s,9*s,9*s);
+    // plates
+    const pw=4,ph=10*s;
+    ctx.fillStyle='#475569';
+    ctx.fillRect(gx-9*s/2-pw-2,gnd-ph,pw,ph);
+    ctx.fillRect(gx+9*s/2+2,gnd-ph,pw,ph);
+    // lips
+    ctx.fillStyle='#34d399';
+    ctx.fillRect(gx-9*s/2-pw-4,gnd,pw+6,3);
+    ctx.fillRect(gx+9*s/2,gnd,pw+6,3);
+    // pads
+    ctx.fillStyle='#f87171';
+    ctx.fillRect(gx-9*s/2-2,gnd-ph+4,2,ph-8);
+    ctx.fillRect(gx+9*s/2,gnd-ph+4,2,ph-8);
+    // label
+    ctx.fillStyle='#e2e8f0';ctx.font='8px monospace';ctx.textAlign='center';
+    ctx.fillText('KAVRAMA',gx,gnd-10*s-5);
+    // arrows showing grip direction
+    ctx.strokeStyle='#34d399';ctx.lineWidth=1;
+    arrow(ctx,gx-9*s/2-20,gy,gx-9*s/2-5,gy);
+    arrow(ctx,gx+9*s/2+20,gy,gx+9*s/2+5,gy);
+    arrow(ctx,gx,gnd+15,gx,gnd+4);
+    ctx.fillStyle='#34d399';ctx.font='7px monospace';
+    ctx.fillText('dudak ↑',gx,gnd+24);
+  }
+}
+
+function drawH(){
+  const c=$('cvH'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+  const n=+$('slH').value;$('lbH').textContent=n;$('scH').textContent=n*5;
+  const gnd=H-35,s=3;
+
+  ctx.fillStyle='#1c1917';ctx.fillRect(0,gnd,W,35);
+  // C bolgesi uyari
+  ctx.fillStyle='rgba(239,68,68,.06)';ctx.fillRect(0,0,W,22);
+  ctx.fillStyle='#ef4444';ctx.font='bold 9px monospace';ctx.textAlign='center';
+  ctx.fillText('C BOLGESI — ORTAK REKABET ALANI',W/2,15);
+
+  // kule
+  const kx=W/2+70,kh=30*s,kw=5*s;
+  ctx.fillStyle='#52525b';ctx.fillRect(kx-12*s/2,gnd-4,12*s,4);
+  ctx.fillStyle='#71717a';ctx.fillRect(kx-kw/2,gnd-kh-4,kw,kh);
+  ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.strokeRect(kx-kw/2,gnd-kh-4,kw,kh);
+  ctx.fillStyle='#fbbf24';ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('ENERJI KULESI (30cm, 5cm cap)',kx,gnd-kh-12);
+
+  // stacked halkaları on kule
+  const ht=2.5*s;
+  for(let i=0;i<n;i++){
+    const hy=gnd-4-(i+1)*ht-i;
+    const or=11*s/2;
+    ctx.fillStyle=`hsla(${150+i*25},55%,42%,.8)`;
+    ctx.fillRect(kx-or,hy,or*2,ht);
+    ctx.strokeStyle=`hsl(${150+i*25},60%,55%)`;ctx.lineWidth=1;
+    ctx.strokeRect(kx-or,hy,or*2,ht);
+    ctx.fillStyle='#0f172a';ctx.fillRect(kx-kw/2,hy,kw,ht);
+  }
+
+  // remaining
+  for(let i=n;i<7;i++){
+    const hx=30+(i-n)*52,hy=gnd-25;
+    const or=11*s/2,ir=9*s/2;
+    ctx.beginPath();ctx.arc(hx,hy,or,0,Math.PI*2);ctx.arc(hx,hy,ir,0,Math.PI*2,true);
+    ctx.fillStyle=`hsla(${150+i*25},45%,35%,.6)`;ctx.fill();
+    ctx.beginPath();ctx.arc(hx,hy,or,0,Math.PI*2);ctx.strokeStyle=`hsl(${150+i*25},55%,50%)`;ctx.lineWidth=1;ctx.stroke();
+    ctx.beginPath();ctx.arc(hx,hy,ir,0,Math.PI*2);ctx.stroke();
+  }
+
+  // gripper with halka (showing release over pole)
+  if(n<7){
+    const gx=kx,gy=gnd-kh-40;
+    const or=11*s/2;
+    // halka
+    ctx.beginPath();ctx.arc(gx,gy,or,0,Math.PI*2);ctx.arc(gx,gy,9*s/2,0,Math.PI*2,true);
+    ctx.fillStyle='rgba(74,222,128,.4)';ctx.fill();
+    ctx.strokeStyle='#4ade80';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(gx,gy,or,0,Math.PI*2);ctx.stroke();
+    // plates on sides
+    ctx.fillStyle='#475569';
+    ctx.fillRect(gx-or-6,gy-12,5,24);
+    ctx.fillRect(gx+or+1,gy-12,5,24);
+    // lips
+    ctx.fillStyle='#34d399';
+    ctx.fillRect(gx-or-8,gy+12,9,3);
+    ctx.fillRect(gx+or-1,gy+12,9,3);
+    // drop arrow
+    ctx.strokeStyle='#fbbf24';ctx.lineWidth=1.5;
+    arrow(ctx,gx,gy+or+8,gx,gy+or+25);
+    ctx.fillStyle='#fbbf24';ctx.font='8px monospace';ctx.textAlign='center';
+    ctx.fillText('ac → dus',gx,gy+or+38);
+    // pole alignment
+    ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(148,163,184,.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(kx-kw/2,gy);ctx.lineTo(kx-kw/2,gnd-kh-4);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(kx+kw/2,gy);ctx.lineTo(kx+kw/2,gnd-kh-4);ctx.stroke();
+    ctx.setLineDash([]);
+    // tolerance label
+    ctx.fillStyle='#94a3b8';ctx.font='8px monospace';
+    ctx.fillText('2cm tolerans',kx+kw/2+8,gy);
+  }
+}
+
+function drawA(){
+  const c=$('cvA'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);grid(ctx,W,H);
+
+  const shDeg=+$('slSh').value,elDeg=+$('slEl').value,grPct=+$('slGr').value;
+  $('lbSh').textContent=shDeg;$('lbEl').textContent=elDeg;$('lbGr').textContent=grPct;
+
+  const gnd=H-50,sc=3.2;
+  ctx.fillStyle='#1c1917';ctx.fillRect(0,gnd,W,50);
+
+  // ruler
+  for(let i=0;i<=40;i+=5){
+    const y=gnd-i*sc;
+    ctx.strokeStyle=i%10===0?'#475569':'#1e293b';ctx.lineWidth=i%10===0?1:.5;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(28,y);ctx.stroke();
+    if(i%10===0){ctx.fillStyle='#64748b';ctx.font='9px monospace';ctx.textAlign='left';ctx.fillText(i+'cm',30,y+3)}
+  }
+
+  // targets
+  [[36,'36cm (4 koli)','#d97706'],[30,'30cm (kule)','#22c55e'],[9,'9cm (1 koli)','#d97706']].forEach(([h,l,c])=>{
+    const y=gnd-h*sc;ctx.setLineDash([3,3]);ctx.strokeStyle=c;ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(W-20,y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=c;ctx.font='9px monospace';ctx.textAlign='right';ctx.fillText(l,W-25,y-3);
+  });
+
+  // robot
+  const rx=260,rh=10*sc;
+  ctx.fillStyle='#1e3a5f';ctx.fillRect(rx-42,gnd-rh,84,rh-8);
+  ctx.strokeStyle='#3b82f6';ctx.lineWidth=1.5;ctx.strokeRect(rx-42,gnd-rh,84,rh-8);
+  ctx.fillStyle='#27272a';
+  [rx-32,rx+32].forEach(wx=>{ctx.beginPath();ctx.arc(wx,gnd,10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#52525b';ctx.lineWidth=1.5;ctx.stroke()});
+
+  // arm
+  const shx=rx+12,shy=gnd-rh;
+  const shRad=shDeg*Math.PI/180;
+  const uLen=12*sc;
+  const elx=shx+Math.sin(shRad)*uLen,ely=shy-Math.cos(shRad)*uLen;
+
+  ctx.strokeStyle='#64748b';ctx.lineWidth=11;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(shx,shy);ctx.lineTo(elx,ely);ctx.stroke();
+  ctx.beginPath();ctx.arc(shx,shy,7,0,Math.PI*2);ctx.fillStyle='#34d399';ctx.fill();
+
+  const elRad=elDeg*Math.PI/180;
+  const fLen=10*sc;
+  const totA=shRad+elRad;
+  const wx=elx+Math.sin(totA)*fLen,wy=ely-Math.cos(totA)*fLen;
+
+  ctx.strokeStyle='#4b5563';ctx.lineWidth=9;
+  ctx.beginPath();ctx.moveTo(elx,ely);ctx.lineTo(wx,wy);ctx.stroke();
+  ctx.beginPath();ctx.arc(elx,ely,5,0,Math.PI*2);ctx.fillStyle='#34d399';ctx.fill();
+
+  // gripper (scoop-clamp style)
+  const gLen=7*sc;
+  const gex=wx+Math.sin(totA)*gLen,gey=wy-Math.cos(totA)*gLen;
+
+  // gripper plates (side view)
+  const op=grPct/100;
+  const gpSpread=2+op*8;
+  const perpA=totA+Math.PI/2;
+  const nx=Math.cos(perpA),ny=Math.sin(perpA);
+
+  // left plate
+  const lp1x=wx+nx*gpSpread,lp1y=wy+ny*gpSpread;
+  const lp2x=gex+nx*gpSpread,lp2y=gey+ny*gpSpread;
+  ctx.strokeStyle='#475569';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(lp1x,lp1y);ctx.lineTo(lp2x,lp2y);ctx.stroke();
+
+  // right plate
+  const rp1x=wx-nx*gpSpread,rp1y=wy-ny*gpSpread;
+  const rp2x=gex-nx*gpSpread,rp2y=gey-ny*gpSpread;
+  ctx.strokeStyle='#475569';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(rp1x,rp1y);ctx.lineTo(rp2x,rp2y);ctx.stroke();
+
+  // lips at tip
+  const lipLen=6;
+  ctx.strokeStyle='#34d399';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(lp2x,lp2y);ctx.lineTo(lp2x-nx*lipLen,lp2y-ny*lipLen);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(rp2x,rp2y);ctx.lineTo(rp2x+nx*lipLen,rp2y+ny*lipLen);ctx.stroke();
+
+  // pad indicator
+  ctx.strokeStyle='#f87171';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(lp1x-nx*2,lp1y-ny*2);ctx.lineTo(lp2x-nx*2,lp2y-ny*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(rp1x+nx*2,rp1y+ny*2);ctx.lineTo(rp2x+nx*2,rp2y+ny*2);ctx.stroke();
+
+  // reach
+  const reachH=(gnd-gey)/sc;
+  const reachX=(gex-shx)/sc;
+  ctx.fillStyle='#22c55e';ctx.font='bold 12px monospace';ctx.textAlign='left';
+  ctx.fillText('Yukseklik: '+reachH.toFixed(1)+'cm',gex+18,gey);
+  ctx.fillStyle='#60a5fa';ctx.font='11px monospace';
+  ctx.fillText('Yatay: '+reachX.toFixed(1)+'cm',gex+18,gey+16);
+
+  // joint labels
+  ctx.fillStyle='#34d399';ctx.font='8px monospace';ctx.textAlign='left';
+  ctx.fillText('MG996R',shx+12,shy+4);ctx.fillText('MG90S',elx+10,ely-8);
+  ctx.fillText('Gripper',wx+10,wy+14);
+
+  // angle arcs
+  ctx.strokeStyle='#fbbf24';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(shx,shy,20,-Math.PI/2,-Math.PI/2+shRad);ctx.stroke();
+  ctx.fillStyle='#fbbf24';ctx.font='9px monospace';ctx.fillText(shDeg+'°',shx-35,shy-14);
+
+  // legend
+  ctx.font='8px monospace';ctx.textAlign='left';
+  ctx.fillStyle='#475569';ctx.fillText('■ Plaka',W-150,20);
+  ctx.fillStyle='#34d399';ctx.fillText('■ L-Dudak',W-150,34);
+  ctx.fillStyle='#f87171';ctx.fillText('■ Silikon pad',W-150,48);
+}
+
+function arrow(ctx,x1,y1,x2,y2){
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.fillStyle=ctx.strokeStyle;
+  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-7*Math.cos(a-.4),y2-7*Math.sin(a-.4));ctx.lineTo(x2-7*Math.cos(a+.4),y2-7*Math.sin(a+.4));ctx.closePath();ctx.fill();
+}
+
+function drawAll(){drawK();drawH();drawA()}
+drawAll();
+</script>
+</body>
+</html>

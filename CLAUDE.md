@@ -154,11 +154,20 @@ Deneyap Kart 1A ile kontrol edilen, 4 tekerlekli ve servo tabanli robotik kollu 
 | Taban (rotasyon) | MG996R | 10 kg.cm | Tum kolu yatay duzlemde dondurmek |
 | Omuz (kaldirma) | MG996R | 10 kg.cm | Kolu yercekimine karsi kaldirmak (en agir yuk) |
 | Dirsek (uzanma) | MG90S | 2.2 kg.cm | Kol ucunu konumlandirmak (hafif yuk yeterli) |
-| Tutucu (gripper) | MG90S | 2.2 kg.cm | Adaptive gripper - hem koli hem halka tutabilir |
+| Tutucu (gripper) | MG90S | 2.2 kg.cm | Scoop-Clamp Paddle Gripper - paralel plaka + L-dudak |
 
 - Kol, yerden koli alip ~36cm yukseklige (4 koli ust uste) ulasabilmeli
 - Kol, enerji kulesine (30cm) halka gecirebilecek hassasiyette olmali
-- **Adaptive gripper:** V-sekilli veya genis aciklikli tasarim, 9cm kup ve 11cm halka ile uyumlu
+- **Scoop-Clamp Paddle Gripper (V2):** Paralel hareket eden iki genis plaka + alt L-dudak
+  - Rack-pinion mekanizmasiyla MG90S servo ile simetrik acilma/kapanma
+  - Aciklik araligi: 0-13cm (9cm koli ve 11cm halka icin yeterli)
+  - Her plakanin ic yuzeyinde 2mm silikon pad (kaymaz kavrama)
+  - Her plakanin altinda 12mm iceri donuk L-dudak (nesneyi alttan destekler)
+  - Koli: plakalar yanlari kavrar + dudaklar tabani destekler (3 yuzey temas)
+  - Halka: plakalar dis yuzeyi kavrar + dudaklar alt kenari destekler
+  - Halka birakma: kule uzerine pozisyonla, plakalar acilir, halka yercekimiyle cubuga duser
+  - Kule capi 5cm < halka ic capi 9cm = 2cm tolerans (hassas hizalama gereksiz)
+  - Tasarim dosyalari: `dokumantasyon/tasarim/v2/`
 
 #### Zipline Mekanizmasi
 - **Servo:** 1x MG996R (mekanizmayi yukari kaldirmak icin yuksek tork)
