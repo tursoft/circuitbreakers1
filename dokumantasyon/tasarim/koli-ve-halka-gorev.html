@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Gorev Simulasyonu - Koli Tasima & Halka Dizme</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; }
+  h1 { text-align: center; padding: 18px; color: #00d4ff; font-size: 1.3em; }
+  .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 10px 20px; }
+  .panel {
+    background: #16213e; border: 1px solid #0f3460; border-radius: 12px;
+    padding: 20px; flex: 1; min-width: 340px; max-width: 580px;
+  }
+  .panel h2 { color: #00d4ff; font-size: 1.05em; margin-bottom: 10px; text-align: center; }
+  canvas { display: block; margin: 0 auto; background: #0a0a1a; border-radius: 8px; }
+  .info { margin-top: 12px; padding: 10px; background: #0f3460; border-radius: 8px; font-size: 0.82em; line-height: 1.6; }
+  .info b { color: #00d4ff; }
+  .controls { margin-top: 12px; text-align: center; }
+  .controls label { display: block; margin: 6px 0 3px; font-size: 0.85em; color: #aaa; }
+  input[type=range] { width: 90%; accent-color: #00d4ff; }
+  .score { text-align: center; margin: 10px 0; }
+  .score-val { font-size: 2em; color: #00ff88; font-weight: bold; }
+  .score-lbl { font-size: 0.85em; color: #888; }
+</style>
+</head>
+<body>
+
+<h1>Gorev Simulasyonu - Koli Tasima (40p) & Halka Dizme (35p)</h1>
+
+<div class="container">
+  <!-- KOLI GOREV -->
+  <div class="panel">
+    <h2>Gorev 1: Koli Tasima & Dizme</h2>
+    <canvas id="cvKoli" width="520" height="420"></canvas>
+    <div class="controls">
+      <label>Tasinan Koli Sayisi: <span id="lblKoli">0</span> / 4</label>
+      <input type="range" id="slKoli" min="0" max="4" value="0" step="1">
+    </div>
+    <div class="score">
+      <div class="score-val" id="scoreKoli">0</div>
+      <div class="score-lbl">puan / 40</div>
+    </div>
+    <div class="info">
+      <b>Gorev Detayi:</b><br>
+      - 4 koli (9x9x9cm, 50-100g) dagitim merkezinden alinir<br>
+      - 12x12cm toplama merkezine ust uste dizilir<br>
+      - Her koli = 10 puan<br>
+      - 4 koli ust uste = 36cm yukseklik<br>
+      - <b>Koliler bitmeden C bolgesine gecilemez!</b><br><br>
+      <b>Gripper Gereksinimleri:</b><br>
+      - Min 9cm aciklik (koli kavrama)<br>
+      - Alt destek (L-profil parmak) ile koli tabanini tutma<br>
+      - Hassas birakma: 12x12cm alana tasirmadan yerlestime
+    </div>
+  </div>
+
+  <!-- HALKA GOREV -->
+  <div class="panel">
+    <h2>Gorev 3: Enerji Halkasi Dizme</h2>
+    <canvas id="cvHalka" width="520" height="420"></canvas>
+    <div class="controls">
+      <label>Dizilen Halka Sayisi: <span id="lblHalka">0</span> / 7</label>
+      <input type="range" id="slHalka" min="0" max="7" value="0" step="1">
+    </div>
+    <div class="score">
+      <div class="score-val" id="scoreHalka">0</div>
+      <div class="score-lbl">puan / 35</div>
+    </div>
+    <div class="info">
+      <b>Gorev Detayi:</b><br>
+      - 7 halka (ic 9cm, dis 11cm, 30-100g) C bolgesinde<br>
+      - 30cm uzunluk, 5cm cap enerji kulesine gecirilir<br>
+      - Her halka = 5 puan<br>
+      - Ortak alan: Rakip robotla AYNI ANDA yarisiliyor<br><br>
+      <b>Gripper Gereksinimleri:</b><br>
+      - Halkayi yandan kavramali (11cm dis cap)<br>
+      - Dikey olarak kuleye indirilmeli<br>
+      - 5cm cap cubuga hassas hizalama gerekli<br>
+      - Ayni V-gripper koli modundan gecis yaparak kullanilir
+    </div>
+  </div>
+</div>
+
+<!-- ROBOT KOL ERISI ANALIZI -->
+<div class="container">
+  <div class="panel" style="max-width:1180px">
+    <h2>Robotik Kol Erisim Analizi</h2>
+    <canvas id="cvArm" width="1100" height="350"></canvas>
+    <div class="controls">
+      <label>Omuz Acisi: <span id="lblShoulder">45</span>&deg;</label>
+      <input type="range" id="slShoulder" min="0" max="135" value="45">
+      <label>Dirsek Acisi: <span id="lblElbowArm">30</span>&deg;</label>
+      <input type="range" id="slElbowArm" min="-45" max="90" value="30">
+    </div>
+    <div class="info">
+      <b>Erisim Gereksinimleri:</b><br>
+      - Yerden koli alma: ~0cm (zemin seviyesi)<br>
+      - 4. koliyi dizme: ~36cm yukseklik<br>
+      - Enerji kulesi: ~30cm yukseklik<br>
+      - Kol toplam erisim: omuz segmenti (~12cm) + dirsek segmenti (~10cm) + gripper (~7cm) = ~29cm<br>
+      - Robot sase yuksekligi (~8-10cm) eklenerek toplam ~37-39cm erisim saglanir
+    </div>
+  </div>
+</div>
+
+<script>
+const slKoli = document.getElementById('slKoli');
+const slHalka = document.getElementById('slHalka');
+const slShoulder = document.getElementById('slShoulder');
+const slElbowArm = document.getElementById('slElbowArm');
+
+slKoli.oninput = drawAll;
+slHalka.oninput = drawAll;
+slShoulder.oninput = drawAll;
+slElbowArm.oninput = drawAll;
+
+function drawGrid(ctx, w, h) {
+  ctx.strokeStyle = '#1a2a4a'; ctx.lineWidth = 0.5;
+  for (let x = 0; x <= w; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y <= h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+
+function drawKoli() {
+  const c = document.getElementById('cvKoli');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const count = +slKoli.value;
+  document.getElementById('lblKoli').textContent = count;
+  document.getElementById('scoreKoli').textContent = count * 10;
+
+  const ground = H - 40;
+  const sc = 3.5; // scale
+
+  // Ground
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(0, ground, W, 40);
+
+  // Dagitim merkezi (sol)
+  const dmX = 60, dmY = ground;
+  ctx.fillStyle = '#1a3a1a';
+  ctx.fillRect(dmX, dmY - 4 * 9 * sc - 10, 14 * sc, 4 * 9 * sc + 10);
+  ctx.strokeStyle = '#3a6a3a'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(dmX, dmY - 4 * 9 * sc - 10, 14 * sc, 4 * 9 * sc + 10);
+  ctx.fillStyle = '#3a6a3a'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('DAGITIM', dmX + 7 * sc, dmY - 4 * 9 * sc - 18);
+  ctx.fillText('MERKEZI', dmX + 7 * sc, dmY - 4 * 9 * sc - 6);
+
+  // Koliler in dagitim (remaining)
+  for (let i = count; i < 4; i++) {
+    const kx = dmX + 2 * sc;
+    const ky = dmY - (i + 1) * 9 * sc;
+    ctx.fillStyle = '#c89632';
+    ctx.fillRect(kx, ky, 9 * sc, 9 * sc);
+    ctx.strokeStyle = '#a07020'; ctx.lineWidth = 1;
+    ctx.strokeRect(kx, ky, 9 * sc, 9 * sc);
+    ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText((i + 1) + '', kx + 4.5 * sc, ky + 5.5 * sc);
+  }
+
+  // Toplama merkezi (sag)
+  const tmX = W - 140, tmY = ground;
+  // 12x12cm area
+  ctx.fillStyle = 'rgba(0, 100, 200, 0.15)';
+  ctx.fillRect(tmX, tmY - 50 * sc, 12 * sc, 50 * sc);
+  ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeRect(tmX, tmY - 50 * sc, 12 * sc, 50 * sc);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#00d4ff'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('TOPLAMA', tmX + 6 * sc, tmY - 50 * sc - 18);
+  ctx.fillText('MERKEZI', tmX + 6 * sc, tmY - 50 * sc - 6);
+  ctx.fillText('12x12cm', tmX + 6 * sc, tmY + 15);
+
+  // Stacked koliler
+  for (let i = 0; i < count; i++) {
+    const kx = tmX + 1.5 * sc;
+    const ky = tmY - (i + 1) * 9 * sc;
+    ctx.fillStyle = '#e8a832';
+    ctx.fillRect(kx, ky, 9 * sc, 9 * sc);
+    ctx.strokeStyle = '#c89020'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(kx, ky, 9 * sc, 9 * sc);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText((i + 1) + '', kx + 4.5 * sc, ky + 5.5 * sc);
+  }
+
+  // Height indicator
+  if (count > 0) {
+    const stackH = count * 9;
+    ctx.fillStyle = '#ffcc00'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(stackH + 'cm', tmX + 14 * sc, tmY - count * 9 * sc / 2);
+
+    // Arrow
+    ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(tmX + 13 * sc, tmY);
+    ctx.lineTo(tmX + 13 * sc, tmY - count * 9 * sc);
+    ctx.stroke();
+  }
+
+  // Robot (center)
+  const robotX = W / 2;
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(robotX - 35, ground - 30, 70, 25);
+  ctx.strokeStyle = '#4a8aba'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(robotX - 35, ground - 30, 70, 25);
+  ctx.fillStyle = '#333';
+  [robotX - 25, robotX + 25].forEach(wx => {
+    ctx.beginPath(); ctx.arc(wx, ground, 8, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Arrow: dagitim -> robot -> toplama
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(dmX + 14 * sc + 10, ground - 50);
+  ctx.lineTo(robotX - 40, ground - 50);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(robotX + 40, ground - 50);
+  ctx.lineTo(tmX - 10, ground - 50);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Arrow heads
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath();
+  ctx.moveTo(tmX - 10, ground - 50);
+  ctx.lineTo(tmX - 18, ground - 54);
+  ctx.lineTo(tmX - 18, ground - 46);
+  ctx.fill();
+}
+
+function drawHalka() {
+  const c = document.getElementById('cvHalka');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const count = +slHalka.value;
+  document.getElementById('lblHalka').textContent = count;
+  document.getElementById('scoreHalka').textContent = count * 5;
+
+  const ground = H - 40;
+  const sc = 3;
+
+  // Ground
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(0, ground, W, 40);
+
+  // Enerji kulesi (center-right)
+  const kuleX = W / 2 + 60;
+  const kuleH = 30 * sc;
+  const kuleW = 5 * sc;
+
+  // Kule base
+  ctx.fillStyle = '#555';
+  ctx.fillRect(kuleX - 15 * sc / 2, ground - 5, 15 * sc, 5);
+
+  // Kule cubuk
+  ctx.fillStyle = '#888';
+  ctx.fillRect(kuleX - kuleW / 2, ground - kuleH - 5, kuleW, kuleH);
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1;
+  ctx.strokeRect(kuleX - kuleW / 2, ground - kuleH - 5, kuleW, kuleH);
+
+  ctx.fillStyle = '#ffcc00'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ENERJI KULESI', kuleX, ground - kuleH - 15);
+  ctx.fillText('30cm / 5cm cap', kuleX, ground - kuleH - 3);
+
+  // Halkalar on kule (stacked)
+  const halkaThickness = 2.5 * sc;
+  for (let i = 0; i < count; i++) {
+    const hy = ground - 5 - (i + 1) * halkaThickness - i * 1;
+    const outerR = 11 * sc / 2;
+    const innerR = 9 * sc / 2;
+
+    // Halka (ellipse side view)
+    ctx.fillStyle = `hsl(${120 + i * 20}, 60%, 40%)`;
+    ctx.fillRect(kuleX - outerR, hy, outerR * 2, halkaThickness);
+    ctx.strokeStyle = `hsl(${120 + i * 20}, 70%, 55%)`;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(kuleX - outerR, hy, outerR * 2, halkaThickness);
+
+    // Hole visible
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(kuleX - kuleW / 2, hy, kuleW, halkaThickness);
+  }
+
+  // Remaining halkalar (scattered on ground, left side)
+  for (let i = count; i < 7; i++) {
+    const hx = 40 + (i - count) * 55;
+    const hy = ground - 30;
+    const outerR = 11 * sc / 2;
+    const innerR = 9 * sc / 2;
+
+    ctx.beginPath();
+    ctx.arc(hx, hy, outerR, 0, Math.PI * 2);
+    ctx.arc(hx, hy, innerR, 0, Math.PI * 2, true);
+    ctx.fillStyle = `hsla(${120 + i * 20}, 50%, 35%, 0.7)`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(hx, hy, outerR, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsl(${120 + i * 20}, 60%, 50%)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(hx, hy, innerR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText((i + 1) + '', hx, hy + 3);
+  }
+
+  // Dimension labels
+  const outerR = 11 * sc / 2;
+  if (count < 7) {
+    const hx = 40;
+    ctx.fillStyle = '#ffcc00'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('dis:11cm', hx, ground - 30 + outerR + 15);
+    ctx.fillText('ic:9cm', hx, ground - 30 + outerR + 27);
+  }
+
+  // Stack height indicator
+  if (count > 0) {
+    const stackH = count * (halkaThickness + 1);
+    ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(kuleX + outerR + 15, ground - 5);
+    ctx.lineTo(kuleX + outerR + 15, ground - 5 - count * (halkaThickness + 1));
+    ctx.stroke();
+    ctx.fillStyle = '#ffcc00'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(count + ' halka', kuleX + outerR + 20, ground - 5 - count * (halkaThickness + 1) / 2);
+  }
+
+  // C bolgesi indicator
+  ctx.fillStyle = 'rgba(255, 100, 100, 0.1)';
+  ctx.fillRect(0, 0, W, 25);
+  ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('C BOLGESI - ORTAK REKABET ALANI (Rakip robot da burada!)', W / 2, 17);
+}
+
+function drawArm() {
+  const c = document.getElementById('cvArm');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const shoulderDeg = +slShoulder.value;
+  const elbowDeg = +slElbowArm.value;
+  document.getElementById('lblShoulder').textContent = shoulderDeg;
+  document.getElementById('lblElbowArm').textContent = elbowDeg;
+
+  const ground = H - 50;
+  const sc = 3;
+
+  // Ground
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(0, ground, W, 50);
+
+  // Scale ruler
+  for (let i = 0; i <= 40; i += 5) {
+    const y = ground - i * sc;
+    ctx.strokeStyle = i % 10 === 0 ? '#555' : '#333';
+    ctx.lineWidth = i % 10 === 0 ? 1 : 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(25, y); ctx.stroke();
+    if (i % 10 === 0) {
+      ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(i + 'cm', 28, y + 3);
+    }
+  }
+
+  // Target heights
+  const targets = [
+    { h: 36, label: '36cm (4 koli)', color: '#c89632' },
+    { h: 30, label: '30cm (enerji kulesi)', color: '#4a4' },
+    { h: 9, label: '9cm (1 koli)', color: '#c89632' },
+  ];
+  targets.forEach(t => {
+    const y = ground - t.h * sc;
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = t.color; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W - 20, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = t.color; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(t.label, W - 25, y - 4);
+  });
+
+  // --- ROBOT + ARM ---
+  const robotX = 250;
+  const robotH = 10 * sc; // 10cm sase yuksekligi
+
+  // Robot body
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(robotX - 40, ground - robotH, 80, robotH - 8);
+  ctx.strokeStyle = '#4a8aba'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(robotX - 40, ground - robotH, 80, robotH - 8);
+
+  // Wheels
+  ctx.fillStyle = '#333';
+  [robotX - 30, robotX + 30].forEach(wx => {
+    ctx.beginPath(); ctx.arc(wx, ground, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+
+  // Shoulder pivot
+  const shoulderX = robotX + 10;
+  const shoulderY = ground - robotH;
+  const shoulderRad = shoulderDeg * Math.PI / 180;
+  const upperArmLen = 12 * sc; // 12cm
+
+  // Upper arm
+  const elbowX = shoulderX + Math.sin(shoulderRad) * upperArmLen;
+  const elbowY = shoulderY - Math.cos(shoulderRad) * upperArmLen;
+
+  ctx.strokeStyle = '#666'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+
+  // Shoulder joint
+  ctx.beginPath(); ctx.arc(shoulderX, shoulderY, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#00d4ff'; ctx.fill();
+
+  // Elbow pivot
+  const elbowRad = elbowDeg * Math.PI / 180;
+  const foreArmLen = 10 * sc; // 10cm
+  const totalAngle = shoulderRad + elbowRad;
+  const wristX = elbowX + Math.sin(totalAngle) * foreArmLen;
+  const wristY = elbowY - Math.cos(totalAngle) * foreArmLen;
+
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.moveTo(elbowX, elbowY); ctx.lineTo(wristX, wristY); ctx.stroke();
+
+  // Elbow joint
+  ctx.beginPath(); ctx.arc(elbowX, elbowY, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00d4ff'; ctx.fill();
+
+  // Gripper at wrist
+  const gripLen = 7 * sc; // 7cm gripper
+  const gripEndX = wristX + Math.sin(totalAngle) * gripLen;
+  const gripEndY = wristY - Math.cos(totalAngle) * gripLen;
+
+  ctx.strokeStyle = '#3a5a7a'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(wristX, wristY); ctx.lineTo(gripEndX, gripEndY); ctx.stroke();
+
+  // Gripper tip
+  ctx.beginPath(); ctx.arc(gripEndX, gripEndY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff6b6b'; ctx.fill();
+
+  // Reach height indicator
+  const reachH = (ground - gripEndY) / sc;
+  ctx.fillStyle = '#00ff88'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('Erisim: ' + reachH.toFixed(1) + 'cm', gripEndX + 15, gripEndY);
+
+  // Horizontal reach
+  const reachX = (gripEndX - shoulderX) / sc;
+  ctx.fillStyle = '#88aaff'; ctx.font = '11px monospace';
+  ctx.fillText('Yatay: ' + reachX.toFixed(1) + 'cm', gripEndX + 15, gripEndY + 16);
+
+  // Joint labels
+  ctx.fillStyle = '#00d4ff'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('MG996R (omuz)', shoulderX + 12, shoulderY + 4);
+  ctx.fillText('MG90S (dirsek)', elbowX + 10, elbowY - 8);
+  ctx.fillText('MG90S (gripper)', wristX + 10, wristY + 15);
+
+  // Angle arcs
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(shoulderX, shoulderY, 20, -Math.PI / 2, -Math.PI / 2 + shoulderRad);
+  ctx.stroke();
+  ctx.fillStyle = '#ffcc00'; ctx.font = '10px monospace';
+  ctx.fillText(shoulderDeg + '°', shoulderX - 35, shoulderY - 15);
+
+  // Servo label on robot
+  ctx.fillStyle = '#ff6b35'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('MG996R (taban rot.)', robotX, ground - robotH - 8);
+}
+
+function drawAll() {
+  drawKoli();
+  drawHalka();
+  drawArm();
+}
+
+drawAll();
+</script>
+</body>
+</html>

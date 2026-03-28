@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Adaptive V-Gripper - Koli & Halka Tutucu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+  h1 { text-align: center; padding: 18px; color: #00d4ff; font-size: 1.4em; }
+  .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 10px 20px; }
+  .panel {
+    background: #16213e; border: 1px solid #0f3460; border-radius: 12px;
+    padding: 20px; min-width: 320px; flex: 1; max-width: 560px;
+  }
+  .panel h2 { color: #00d4ff; font-size: 1.1em; margin-bottom: 12px; text-align: center; }
+  canvas { display: block; margin: 0 auto; background: #0a0a1a; border-radius: 8px; cursor: pointer; }
+  .controls { margin-top: 14px; text-align: center; }
+  .controls label { display: block; margin: 8px 0 4px; font-size: 0.85em; color: #aaa; }
+  input[type=range] { width: 90%; accent-color: #00d4ff; }
+  .info { margin-top: 12px; padding: 10px; background: #0f3460; border-radius: 8px; font-size: 0.82em; line-height: 1.6; }
+  .info b { color: #00d4ff; }
+  .mode-btns { display: flex; gap: 8px; justify-content: center; margin: 10px 0; }
+  .mode-btns button {
+    padding: 6px 16px; border: 1px solid #00d4ff; background: transparent;
+    color: #00d4ff; border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: 0.2s;
+  }
+  .mode-btns button.active, .mode-btns button:hover { background: #00d4ff; color: #1a1a2e; }
+  .dim { font-size: 0.75em; color: #ffcc00; }
+  .specs { display: flex; gap: 16px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .spec-box {
+    background: #1a1a3e; border: 1px solid #333; border-radius: 8px; padding: 8px 14px;
+    text-align: center; font-size: 0.8em;
+  }
+  .spec-box .val { font-size: 1.4em; color: #00d4ff; font-weight: bold; }
+  .spec-box .lbl { color: #888; font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>Adaptive V-Gripper Tasarimi - Koli & Halka Uyumlu</h1>
+
+<div class="specs">
+  <div class="spec-box"><div class="val">9-11cm</div><div class="lbl">Kavrama Araligi</div></div>
+  <div class="spec-box"><div class="val">MG90S</div><div class="lbl">Servo Motor</div></div>
+  <div class="spec-box"><div class="val">~14g</div><div class="lbl">Gripper Agirlik</div></div>
+  <div class="spec-box"><div class="val">2.2 kg.cm</div><div class="lbl">Kavrama Torku</div></div>
+</div>
+
+<div class="container">
+  <!-- SOL PANEL: Ust Gorunum -->
+  <div class="panel">
+    <h2>Ust Gorunum (Top View)</h2>
+    <canvas id="cvTop" width="500" height="400"></canvas>
+    <div class="controls">
+      <label>Gripper Aciklik: <span id="lblAngle">50</span>%</label>
+      <input type="range" id="slAngle" min="0" max="100" value="50">
+      <div class="mode-btns">
+        <button id="btnEmpty" class="active" onclick="setMode('empty')">Bos</button>
+        <button id="btnKoli" onclick="setMode('koli')">Koli (9cm)</button>
+        <button id="btnHalka" onclick="setMode('halka')">Halka (11cm)</button>
+      </div>
+    </div>
+    <div class="info">
+      <b>V-Sekilli Adaptive Gripper:</b> Iki parmak V aciyla acilir/kapanir.
+      V profili sayesinde farkli boyuttaki nesneleri (kup 9cm, halka 11cm) tek tutucu ile kavrayabilir.
+      Parmak ic yuzeyleri lastik kapli (grip).
+      <br><br>
+      <b>Calisma prensibi:</b> MG90S servo bir dislili mekanizma ile iki parmagi simetrik olarak acar/kapatir.
+      V acisi sayesinde kucuk nesneler parmak uclarinda, buyuk nesneler parmak dibinde kavranir.
+    </div>
+  </div>
+
+  <!-- SAG PANEL: Yan Gorunum -->
+  <div class="panel">
+    <h2>Yan Gorunum (Side View)</h2>
+    <canvas id="cvSide" width="500" height="400"></canvas>
+    <div class="controls">
+      <label>Kol Dirsek Acisi: <span id="lblElbow">45</span>&deg;</label>
+      <input type="range" id="slElbow" min="0" max="90" value="45">
+    </div>
+    <div class="info">
+      <b>Parmak Profili (Yan):</b> Her parmak L-seklinde bukulmus aluminyum/3D-print parcadan olusur.
+      Ic kisimda 2mm silikon lastik kaplama ile kavrama gucu artirilir.
+      <br><br>
+      <b>Olculer:</b> Parmak uzunlugu ~7cm, V acisi 15-45&deg; ayarlanabilir, max aciklik ~13cm.
+    </div>
+  </div>
+</div>
+
+<!-- ALT PANEL: Karsilastirma -->
+<div class="container">
+  <div class="panel" style="max-width:1140px">
+    <h2>Kavrama Modlari Karsilastirma</h2>
+    <canvas id="cvCompare" width="1080" height="300"></canvas>
+    <div class="info" style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px">
+        <b>Koli Modu (9x9x9cm, 50-100g):</b><br>
+        - V parmaklar koli koselerine oturur<br>
+        - Genis temas yuzeyi, stabil kavrama<br>
+        - Parmak uclari koliyi alttan destekler
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Halka Modu (ic 9cm, dis 11cm, 30-100g):</b><br>
+        - V profili halkanin dis yuzeyine oturur<br>
+        - Halka yanal olarak kavranir<br>
+        - Kuleye gecirmek icin dikey pozisyonlama
+      </div>
+      <div style="flex:1;min-width:200px">
+        <b>Avantajlar:</b><br>
+        - Tek tutucu, iki gorev<br>
+        - Mekanizma degisimi gerektirmez<br>
+        - Hafif ve kompakt (~14g + parmaklar)
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let mode = 'empty';
+let gripAngle = 50;
+let elbowAngle = 45;
+
+const slAngle = document.getElementById('slAngle');
+const slElbow = document.getElementById('slElbow');
+
+slAngle.oninput = () => { gripAngle = +slAngle.value; document.getElementById('lblAngle').textContent = gripAngle; draw(); };
+slElbow.oninput = () => { elbowAngle = +slElbow.value; document.getElementById('lblElbow').textContent = elbowAngle; draw(); };
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btns button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1)).classList.add('active');
+  if (m === 'koli') { gripAngle = 35; slAngle.value = 35; document.getElementById('lblAngle').textContent = 35; }
+  else if (m === 'halka') { gripAngle = 55; slAngle.value = 55; document.getElementById('lblAngle').textContent = 55; }
+  else { gripAngle = 50; slAngle.value = 50; document.getElementById('lblAngle').textContent = 50; }
+  draw();
+}
+
+function drawGrid(ctx, w, h) {
+  ctx.strokeStyle = '#1a2a4a';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= w; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y <= h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+
+function drawDim(ctx, x1, y1, x2, y2, label, offset = 20) {
+  ctx.save();
+  ctx.strokeStyle = '#ffcc00';
+  ctx.fillStyle = '#ffcc00';
+  ctx.lineWidth = 1;
+  ctx.font = '11px monospace';
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const nx = -dy / len * offset, ny = dx / len * offset;
+  ctx.beginPath();
+  ctx.moveTo(x1 + nx, y1 + ny); ctx.lineTo(x2 + nx, y2 + ny);
+  ctx.stroke();
+  // ticks
+  ctx.beginPath();
+  ctx.moveTo(x1, y1); ctx.lineTo(x1 + nx, y1 + ny);
+  ctx.moveTo(x2, y2); ctx.lineTo(x2 + nx, y2 + ny);
+  ctx.stroke();
+  const mx = (x1 + x2) / 2 + nx, my = (y1 + y2) / 2 + ny;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(label, mx, my - 2);
+  ctx.restore();
+}
+
+function drawTopView() {
+  const c = document.getElementById('cvTop');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const cx = W / 2, cy = H / 2 + 20;
+  const openFactor = gripAngle / 100;
+  const maxSpread = 65; // max half-spread px
+  const spread = 10 + openFactor * maxSpread;
+  const fingerLen = 110;
+  const vAngle = 0.25; // V angle rad
+
+  // Servo body
+  ctx.fillStyle = '#334';
+  ctx.fillRect(cx - 15, cy - 55, 30, 35);
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('MG90S', cx, cy - 35);
+
+  // Linkage block
+  ctx.fillStyle = '#445';
+  ctx.fillRect(cx - 20, cy - 20, 40, 20);
+  ctx.fillStyle = '#888';
+  ctx.font = '9px monospace';
+  ctx.fillText('linkage', cx, cy - 6);
+
+  // Fingers (V-shape)
+  const drawFinger = (side) => {
+    const s = side === 'left' ? -1 : 1;
+    const baseX = cx + s * 12;
+    const baseY = cy;
+    const tipX = baseX + s * spread;
+    const tipY = cy + fingerLen;
+    const midX = baseX + s * (spread * 0.3);
+    const midY = cy + fingerLen * 0.5;
+
+    // Finger outline
+    ctx.beginPath();
+    ctx.moveTo(baseX - s * 4, baseY);
+    ctx.lineTo(midX - s * 6, midY);
+    ctx.lineTo(tipX - s * 5, tipY);
+    ctx.lineTo(tipX + s * 5, tipY);
+    ctx.lineTo(midX + s * 6, midY);
+    ctx.lineTo(baseX + s * 4, baseY);
+    ctx.closePath();
+    ctx.fillStyle = '#3a5a7a';
+    ctx.fill();
+    ctx.strokeStyle = '#5a9aca';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Rubber grip (inner surface)
+    ctx.beginPath();
+    ctx.moveTo(baseX - s * 2, baseY + 5);
+    ctx.lineTo(midX - s * 3, midY);
+    ctx.lineTo(tipX - s * 3, tipY - 3);
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Grip texture
+    for (let i = 0; i < 5; i++) {
+      const t = (i + 1) / 6;
+      const gx = baseX - s * 2 + (tipX - s * 3 - baseX + s * 2) * t;
+      const gy = baseY + 5 + (tipY - 3 - baseY - 5) * t;
+      ctx.beginPath();
+      ctx.arc(gx, gy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff4444';
+      ctx.fill();
+    }
+
+    return { tipX, tipY, midX, midY };
+  };
+
+  const left = drawFinger('left');
+  const right = drawFinger('right');
+
+  // Object
+  if (mode === 'koli') {
+    const koliSize = 68; // ~9cm scaled
+    const koliX = cx - koliSize / 2;
+    const koliY = cy + fingerLen * 0.35;
+    ctx.fillStyle = 'rgba(200, 150, 50, 0.7)';
+    ctx.fillRect(koliX, koliY, koliSize, koliSize);
+    ctx.strokeStyle = '#c89632';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(koliX, koliY, koliSize, koliSize);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('KOLI', cx, koliY + koliSize / 2 + 4);
+    ctx.font = '10px monospace';
+    ctx.fillText('9x9cm', cx, koliY + koliSize / 2 + 18);
+    // dimension
+    drawDim(ctx, koliX, koliY + koliSize + 5, koliX + koliSize, koliY + koliSize + 5, '9cm', 15);
+  } else if (mode === 'halka') {
+    const outerR = 42; // ~11cm scaled
+    const innerR = 34; // ~9cm scaled
+    const halkaY = cy + fingerLen * 0.55;
+    ctx.beginPath();
+    ctx.arc(cx, halkaY, outerR, 0, Math.PI * 2);
+    ctx.arc(cx, halkaY, innerR, 0, Math.PI * 2, true);
+    ctx.fillStyle = 'rgba(100, 200, 100, 0.6)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, halkaY, outerR, 0, Math.PI * 2);
+    ctx.strokeStyle = '#4a4';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, halkaY, innerR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('HALKA', cx, halkaY + 4);
+    ctx.font = '10px monospace';
+    ctx.fillText('ic:9 dis:11cm', cx, halkaY + 18);
+    // dimension
+    drawDim(ctx, cx - outerR, halkaY, cx + outerR, halkaY, '11cm', -outerR - 20);
+  }
+
+  // Spread dimension
+  const tipY = cy + fingerLen;
+  drawDim(ctx, left.tipX, tipY, right.tipX, tipY, (spread * 2 * 0.075).toFixed(1) + 'cm', 18);
+
+  // Labels
+  ctx.fillStyle = '#ff6b6b';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('kirmizi = silikon grip', 10, 20);
+  ctx.fillStyle = '#5a9aca';
+  ctx.fillText('mavi = aluminyum/PLA parmak', 10, 35);
+}
+
+function drawSideView() {
+  const c = document.getElementById('cvSide');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const cx = W / 2, baseY = 80;
+  const elbowRad = elbowAngle * Math.PI / 180;
+
+  // Arm segment (upper)
+  const armLen = 120;
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx, baseY);
+  ctx.lineTo(cx, baseY + armLen);
+  ctx.stroke();
+
+  // Elbow joint
+  ctx.beginPath();
+  ctx.arc(cx, baseY + armLen, 10, 0, Math.PI * 2);
+  ctx.fillStyle = '#00d4ff';
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('MG90S', cx + 30, baseY + armLen + 4);
+
+  // Forearm (angled)
+  const foreLen = 80;
+  const foreEndX = cx + Math.sin(elbowRad) * foreLen;
+  const foreEndY = baseY + armLen + Math.cos(elbowRad) * foreLen;
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(cx, baseY + armLen);
+  ctx.lineTo(foreEndX, foreEndY);
+  ctx.stroke();
+
+  // Servo block at wrist
+  ctx.save();
+  ctx.translate(foreEndX, foreEndY);
+  ctx.rotate(-elbowRad);
+
+  // Servo housing
+  ctx.fillStyle = '#334';
+  ctx.fillRect(-12, -5, 24, 20);
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SRV', 0, 10);
+
+  ctx.restore();
+
+  // Gripper fingers (side view - L shape)
+  const gx = foreEndX;
+  const gy = foreEndY + 15;
+  const openFactor = gripAngle / 100;
+  const fSpread = 8 + openFactor * 25;
+
+  // L-shaped finger profile (side)
+  const drawFingerSide = (side) => {
+    const s = side === 'left' ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(gx + s * 8, gy);
+    ctx.lineTo(gx + s * (8 + fSpread * 0.3), gy + 50);
+    ctx.lineTo(gx + s * (8 + fSpread * 0.3), gy + 70);
+    ctx.lineTo(gx + s * (8 + fSpread * 0.3 - 8), gy + 70);
+    ctx.lineTo(gx + s * (8 + fSpread * 0.3 - 5), gy + 52);
+    ctx.lineTo(gx + s * 4, gy);
+    ctx.closePath();
+    ctx.fillStyle = '#3a5a7a';
+    ctx.fill();
+    ctx.strokeStyle = '#5a9aca';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // L-bend tip (grip surface)
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fillRect(gx + s * (8 + fSpread * 0.3 - 8), gy + 65, s < 0 ? 8 : 8, 5);
+  };
+
+  drawFingerSide('left');
+  drawFingerSide('right');
+
+  // Object in gripper (side)
+  if (mode === 'koli') {
+    const ky = gy + 35;
+    ctx.fillStyle = 'rgba(200, 150, 50, 0.6)';
+    ctx.fillRect(gx - 34, ky, 68, 35);
+    ctx.strokeStyle = '#c89632';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(gx - 34, ky, 68, 35);
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('KOLI', gx, ky + 20);
+  } else if (mode === 'halka') {
+    const hy = gy + 45;
+    ctx.beginPath();
+    ctx.ellipse(gx, hy, 42, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(100, 200, 100, 0.5)';
+    ctx.fill();
+    ctx.strokeStyle = '#4a4';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('HALKA', gx, hy + 4);
+  }
+
+  // Dimension labels
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Parmak: ~7cm', 10, 20);
+  ctx.fillText('L-buk: alt destek', 10, 35);
+  ctx.fillStyle = '#ff6b6b';
+  ctx.fillText('Kirmizi = grip yuzeyi', 10, 50);
+
+  // Elbow angle arc
+  ctx.beginPath();
+  ctx.arc(cx, baseY + armLen, 25, Math.PI / 2 - elbowRad, Math.PI / 2);
+  ctx.strokeStyle = '#ffcc00';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '11px monospace';
+  ctx.fillText(elbowAngle + '°', cx + 28, baseY + armLen - 5);
+}
+
+function drawCompare() {
+  const c = document.getElementById('cvCompare');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const sections = [
+    { x: 90, label: 'ACIK (Bos)', grip: 80 },
+    { x: 360, label: 'KOLI KAVRAMA', grip: 35, obj: 'koli' },
+    { x: 630, label: 'HALKA KAVRAMA', grip: 55, obj: 'halka' },
+    { x: 900, label: 'KAPALI', grip: 0 }
+  ];
+
+  sections.forEach(sec => {
+    const cx = sec.x, cy = 50;
+    const openFactor = sec.grip / 100;
+    const spread = 10 + openFactor * 55;
+    const fLen = 90;
+
+    // Mini servo
+    ctx.fillStyle = '#334';
+    ctx.fillRect(cx - 10, cy - 10, 20, 15);
+
+    // Fingers
+    [-1, 1].forEach(s => {
+      const bx = cx + s * 8;
+      const tx = bx + s * spread;
+      const ty = cy + fLen;
+      ctx.beginPath();
+      ctx.moveTo(bx - s * 3, cy + 5);
+      ctx.lineTo(tx - s * 4, ty);
+      ctx.lineTo(tx + s * 4, ty);
+      ctx.lineTo(bx + s * 3, cy + 5);
+      ctx.closePath();
+      ctx.fillStyle = '#3a5a7a';
+      ctx.fill();
+      ctx.strokeStyle = '#5a9aca';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // grip line
+      ctx.beginPath();
+      ctx.moveTo(bx - s * 1, cy + 8);
+      ctx.lineTo(tx - s * 2, ty - 2);
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // Object
+    if (sec.obj === 'koli') {
+      const ks = 56;
+      ctx.fillStyle = 'rgba(200, 150, 50, 0.7)';
+      ctx.fillRect(cx - ks / 2, cy + fLen * 0.3, ks, ks);
+      ctx.strokeStyle = '#c89632';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - ks / 2, cy + fLen * 0.3, ks, ks);
+      ctx.fillStyle = '#fff';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('9cm', cx, cy + fLen * 0.3 + ks / 2 + 3);
+    } else if (sec.obj === 'halka') {
+      const hr = 35, ir = 28;
+      const hy = cy + fLen * 0.55;
+      ctx.beginPath();
+      ctx.arc(cx, hy, hr, 0, Math.PI * 2);
+      ctx.arc(cx, hy, ir, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(100, 200, 100, 0.6)';
+      ctx.fill();
+      ctx.strokeStyle = '#4a4';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, hy, hr, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, hy, ir, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('11cm', cx, hy + 4);
+    }
+
+    // Label
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(sec.label, cx, cy + fLen + 30);
+
+    // Spread dim
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '10px monospace';
+    const spreadCm = (spread * 2 * 0.075).toFixed(1);
+    ctx.fillText(spreadCm + 'cm aciklik', cx, cy + fLen + 45);
+  });
+}
+
+function draw() { drawTopView(); drawSideView(); drawCompare(); }
+draw();
+</script>
+</body>
+</html>

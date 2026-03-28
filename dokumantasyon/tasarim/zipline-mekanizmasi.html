@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Zipline Mekanizmasi - Teleskopik Direk + Kanca</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; }
+  h1 { text-align: center; padding: 18px; color: #ff6b35; font-size: 1.4em; }
+  .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 10px 20px; }
+  .panel {
+    background: #16213e; border: 1px solid #0f3460; border-radius: 12px;
+    padding: 20px; flex: 1; min-width: 320px; max-width: 600px;
+  }
+  .panel h2 { color: #ff6b35; font-size: 1.1em; margin-bottom: 12px; text-align: center; }
+  canvas { display: block; margin: 0 auto; background: #0a0a1a; border-radius: 8px; }
+  .controls { margin-top: 14px; text-align: center; }
+  .controls label { display: block; margin: 8px 0 4px; font-size: 0.85em; color: #aaa; }
+  input[type=range] { width: 90%; accent-color: #ff6b35; }
+  .info { margin-top: 12px; padding: 10px; background: #0f3460; border-radius: 8px; font-size: 0.82em; line-height: 1.6; }
+  .info b { color: #ff6b35; }
+  .specs { display: flex; gap: 16px; justify-content: center; margin: 10px 20px; flex-wrap: wrap; }
+  .spec-box {
+    background: #1a1a3e; border: 1px solid #333; border-radius: 8px; padding: 8px 14px;
+    text-align: center; font-size: 0.8em;
+  }
+  .spec-box .val { font-size: 1.4em; color: #ff6b35; font-weight: bold; }
+  .spec-box .lbl { color: #888; font-size: 0.85em; }
+  .phase-btns { display: flex; gap: 8px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+  .phase-btns button {
+    padding: 6px 14px; border: 1px solid #ff6b35; background: transparent;
+    color: #ff6b35; border-radius: 6px; cursor: pointer; font-size: 0.82em; transition: 0.2s;
+  }
+  .phase-btns button.active, .phase-btns button:hover { background: #ff6b35; color: #1a1a2e; }
+  .status { text-align: center; margin: 10px 0; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>Zipline Mekanizmasi - Teleskopik Direk + Makara/Kanca</h1>
+
+<div class="specs">
+  <div class="spec-box"><div class="val">90cm</div><div class="lbl">Baslangic Yuk.</div></div>
+  <div class="spec-box"><div class="val">70cm</div><div class="lbl">Bitis Yuk.</div></div>
+  <div class="spec-box"><div class="val">1m</div><div class="lbl">Hat Uzunlugu</div></div>
+  <div class="spec-box"><div class="val">MG996R</div><div class="lbl">Servo</div></div>
+  <div class="spec-box"><div class="val">~80-100g</div><div class="lbl">Mek. Agirlik</div></div>
+  <div class="spec-box"><div class="val">~700g</div><div class="lbl">Robot Agirlik</div></div>
+</div>
+
+<div class="container">
+  <!-- ANA ANIMASYON -->
+  <div class="panel" style="max-width:700px;min-width:400px;">
+    <h2>Yan Gorunum - Zipline Gecis Animasyonu</h2>
+    <canvas id="cvMain" width="650" height="450"></canvas>
+    <div id="statusBar" class="status" style="background:#0f3460;color:#ff6b35;">Faz secin veya animasyonu baslatin</div>
+    <div class="phase-btns">
+      <button id="ph1" class="active" onclick="setPhase(0)">1. Katlanmis</button>
+      <button id="ph2" onclick="setPhase(1)">2. Direk Aciliyor</button>
+      <button id="ph3" onclick="setPhase(2)">3. Kanca Tutundu</button>
+      <button id="ph4" onclick="setPhase(3)">4. Kayis</button>
+      <button id="ph5" onclick="setPhase(4)">5. Inis</button>
+      <button id="phAnim" onclick="startAnim()" style="border-color:#00ff88;color:#00ff88;">&#9654; Animasyon</button>
+    </div>
+    <div class="controls">
+      <label>Manuel Faz Ilerleme: <span id="lblPhase">0</span>%</label>
+      <input type="range" id="slPhase" min="0" max="100" value="0">
+    </div>
+  </div>
+
+  <!-- DETAY -->
+  <div class="panel" style="max-width:440px;">
+    <h2>Kanca/Makara Detayi</h2>
+    <canvas id="cvHook" width="400" height="280"></canvas>
+    <div class="info">
+      <b>Makara Sistemi:</b><br>
+      - Uc kisimda doner makara (pulley) bulunur<br>
+      - Makara, zipline teline oturur ve surtunmeyi azaltir<br>
+      - Makara etrafinda emniyet kancasi: tel kaymalarini onler<br>
+      - Makara capi: ~3cm (ince tel icin uygun)<br><br>
+      <b>Teleskopik Direk:</b><br>
+      - 3 segmentli ic ice gecen aluminyum/karbon boru<br>
+      - Katlanmis: ~30cm | Acik: ~90cm<br>
+      - MG996R servo, disli mekanizma ile acip kapatir<br>
+      - Baslangicta yatay katlanir (60cm siniri icinde)<br><br>
+      <b>Emniyet:</b><br>
+      - Kanca kilidi: makara tele oturduktan sonra kilitlenir<br>
+      - Acilmadan once robot DURMALI (guvenlik kontrolu)<br>
+      - Kumandadan tek butonla tetiklenir
+    </div>
+
+    <h2 style="margin-top:16px;">Katlanma Detayi</h2>
+    <canvas id="cvFold" width="400" height="200"></canvas>
+    <div class="info">
+      <b>60cm siniri icinde katlanma:</b><br>
+      Robot yuksekligi ~20cm + katlanmis direk ~30cm = ~50cm toplam (sinirin altinda).
+      Direk, robot ustunde yatay pozisyonda baslar. Servo ile dikey pozisyona kaldirilir.
+    </div>
+  </div>
+</div>
+
+<script>
+let phase = 0; // 0-4
+let animProgress = 0; // 0-100
+let animRunning = false;
+let animId = null;
+
+const slPhase = document.getElementById('slPhase');
+slPhase.oninput = () => {
+  animProgress = +slPhase.value;
+  document.getElementById('lblPhase').textContent = animProgress;
+  phase = animProgress < 20 ? 0 : animProgress < 40 ? 1 : animProgress < 60 ? 2 : animProgress < 80 ? 3 : 4;
+  updatePhaseButtons();
+  draw();
+};
+
+function setPhase(p) {
+  phase = p;
+  animProgress = p * 25;
+  slPhase.value = animProgress;
+  document.getElementById('lblPhase').textContent = animProgress;
+  stopAnim();
+  updatePhaseButtons();
+  draw();
+}
+
+function updatePhaseButtons() {
+  document.querySelectorAll('.phase-btns button').forEach((b, i) => {
+    if (i < 5) b.classList.toggle('active', i === phase);
+  });
+  const msgs = [
+    'Katlanmis: Direk yatay, robot hazir',
+    'Direk aciliyor: Servo diregi dikey kaldiriyor',
+    'Kanca tutundu: Makara zipline teline oturdu',
+    'Kayis: Robot zipline uzerinde kayiyor',
+    'Inis: Robot karsiya ulasti, direk katlanir'
+  ];
+  document.getElementById('statusBar').textContent = msgs[phase] || '';
+}
+
+function startAnim() {
+  if (animRunning) { stopAnim(); return; }
+  animRunning = true;
+  animProgress = 0;
+  const tick = () => {
+    animProgress += 0.4;
+    if (animProgress > 100) { animProgress = 100; stopAnim(); }
+    slPhase.value = animProgress;
+    document.getElementById('lblPhase').textContent = Math.round(animProgress);
+    phase = animProgress < 20 ? 0 : animProgress < 40 ? 1 : animProgress < 60 ? 2 : animProgress < 80 ? 3 : 4;
+    updatePhaseButtons();
+    draw();
+    if (animRunning) animId = requestAnimationFrame(tick);
+  };
+  animId = requestAnimationFrame(tick);
+}
+
+function stopAnim() {
+  animRunning = false;
+  if (animId) cancelAnimationFrame(animId);
+}
+
+function drawGrid(ctx, w, h) {
+  ctx.strokeStyle = '#1a2a4a'; ctx.lineWidth = 0.5;
+  for (let x = 0; x <= w; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y <= h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+
+function drawMain() {
+  const c = document.getElementById('cvMain');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const ground = H - 40;
+  const scale = 4; // 1cm = 4px
+
+  // Ground
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(0, ground, W, 40);
+  ctx.strokeStyle = '#554';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, ground); ctx.lineTo(W, ground); ctx.stroke();
+
+  // Zipline wire
+  const wireStartX = 120, wireStartY = ground - 90 * scale;
+  const wireEndX = 520, wireEndY = ground - 70 * scale;
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(wireStartX, wireStartY); ctx.lineTo(wireEndX, wireEndY); ctx.stroke();
+
+  // Wire poles
+  ctx.strokeStyle = '#666'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(wireStartX, ground); ctx.lineTo(wireStartX, wireStartY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(wireEndX, ground); ctx.lineTo(wireEndX, wireEndY); ctx.stroke();
+
+  // Height labels
+  ctx.fillStyle = '#ffcc00'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('90cm', wireStartX - 8, wireStartY + 4);
+  ctx.fillText('70cm', wireEndX + 35, wireEndY + 4);
+
+  // Wire length
+  ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('~1m zipline hatti', (wireStartX + wireEndX) / 2, wireStartY - 15);
+
+  // Robot position and state based on progress
+  let robotX, robotY, poleAngle, poleLen, hookOnWire;
+
+  const subProgress = (animProgress % 20) / 20; // 0-1 within each phase
+
+  if (animProgress < 20) {
+    // Phase 1: Folded, at start
+    robotX = wireStartX - 30;
+    robotY = ground;
+    poleAngle = Math.PI / 2; // horizontal
+    poleLen = 30 * scale * 0.3;
+    hookOnWire = false;
+  } else if (animProgress < 40) {
+    // Phase 2: Pole extending
+    robotX = wireStartX - 30;
+    robotY = ground;
+    poleAngle = Math.PI / 2 - subProgress * Math.PI / 2; // horizontal -> vertical
+    poleLen = 30 * scale * 0.3 + subProgress * 90 * scale * 0.7;
+    hookOnWire = false;
+  } else if (animProgress < 60) {
+    // Phase 3: Hook latched
+    robotX = wireStartX - 30;
+    robotY = ground;
+    poleAngle = 0; // vertical
+    poleLen = 90 * scale;
+    hookOnWire = true;
+  } else if (animProgress < 80) {
+    // Phase 4: Sliding on wire
+    const t = subProgress;
+    const wx = wireStartX + t * (wireEndX - wireStartX);
+    const wy = wireStartY + t * (wireEndY - wireStartY);
+    robotX = wx;
+    robotY = wy + 20; // hanging below wire
+    poleAngle = -0.05;
+    poleLen = 20;
+    hookOnWire = true;
+  } else {
+    // Phase 5: Landing
+    const t = subProgress;
+    robotX = wireEndX;
+    robotY = wireEndY + 20 + t * (ground - wireEndY - 20);
+    poleAngle = t * Math.PI / 2;
+    poleLen = 20 + t * 20;
+    hookOnWire = t < 0.5;
+  }
+
+  // Draw robot
+  const rw = 60, rh = 25;
+  const rx = robotX - rw / 2;
+  const ry = robotY - rh;
+
+  // Wheels
+  ctx.fillStyle = '#333';
+  [rx + 8, rx + rw - 8].forEach(wx => {
+    ctx.beginPath();
+    ctx.arc(wx, robotY, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+    // tire tread
+    ctx.beginPath(); ctx.arc(wx, robotY, 6, 0, Math.PI * 2);
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke();
+  });
+
+  // Body
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(rx, ry, rw, rh);
+  ctx.strokeStyle = '#4a8aba';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(rx, ry, rw, rh);
+
+  // Label
+  ctx.fillStyle = '#fff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ROBOT', robotX, ry + rh / 2 + 3);
+
+  // Telescopic pole
+  const poleBaseX = robotX;
+  const poleBaseY = ry;
+  const poleTipX = poleBaseX + Math.sin(poleAngle) * poleLen;
+  const poleTipY = poleBaseY - Math.cos(poleAngle) * poleLen;
+
+  // Pole segments (3 colors for telescopic)
+  const segments = 3;
+  for (let i = 0; i < segments; i++) {
+    const t1 = i / segments, t2 = (i + 1) / segments;
+    const sx = poleBaseX + (poleTipX - poleBaseX) * t1;
+    const sy = poleBaseY + (poleTipY - poleBaseY) * t1;
+    const ex = poleBaseX + (poleTipX - poleBaseX) * t2;
+    const ey = poleBaseY + (poleTipY - poleBaseY) * t2;
+    ctx.strokeStyle = ['#888', '#aaa', '#ccc'][i];
+    ctx.lineWidth = 6 - i * 1.5;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+  }
+
+  // Hook/pulley at tip
+  if (poleLen > 30) {
+    ctx.beginPath();
+    ctx.arc(poleTipX, poleTipY, 8, 0, Math.PI * 2);
+    ctx.fillStyle = hookOnWire ? '#00ff88' : '#ff6b35';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Pulley groove
+    ctx.beginPath();
+    ctx.arc(poleTipX, poleTipY, 8, -0.5, 0.5);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(hookOnWire ? 'KILITLI' : 'MAKARA', poleTipX, poleTipY + 20);
+  }
+
+  // Servo indicator
+  ctx.fillStyle = '#ff6b35'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('MG996R', poleBaseX + 8, poleBaseY - 5);
+
+  // 60cm limit line (at start only)
+  if (animProgress < 20) {
+    const limitY = ground - 60 * scale;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(rx - 20, limitY); ctx.lineTo(rx + rw + 20, limitY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff4444'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('60cm siniri', robotX, limitY - 5);
+  }
+
+  updatePhaseButtons();
+}
+
+function drawHook() {
+  const c = document.getElementById('cvHook');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const cx = W / 2, cy = H / 2;
+
+  // Zipline wire
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(40, cy - 30); ctx.lineTo(W - 40, cy - 30); ctx.stroke();
+  ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ZIPLINE TELI', cx, cy - 45);
+
+  // Pulley
+  ctx.beginPath();
+  ctx.arc(cx, cy - 30, 22, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fill();
+  ctx.strokeStyle = '#ff6b35';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Pulley groove (where wire sits)
+  ctx.beginPath();
+  ctx.arc(cx, cy - 30, 22, -0.3, 0.3);
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  // Inner bearing
+  ctx.beginPath();
+  ctx.arc(cx, cy - 30, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#666';
+  ctx.fill();
+
+  // Axle
+  ctx.fillStyle = '#aaa';
+  ctx.fillRect(cx - 2, cy - 32, 4, 4);
+
+  // Safety latch (hook arms)
+  ctx.strokeStyle = '#ff6b35'; ctx.lineWidth = 3;
+  // Left arm
+  ctx.beginPath();
+  ctx.moveTo(cx - 25, cy - 10);
+  ctx.quadraticCurveTo(cx - 35, cy - 40, cx - 20, cy - 55);
+  ctx.stroke();
+  // Right arm
+  ctx.beginPath();
+  ctx.moveTo(cx + 25, cy - 10);
+  ctx.quadraticCurveTo(cx + 35, cy - 40, cx + 20, cy - 55);
+  ctx.stroke();
+
+  // Mount plate
+  ctx.fillStyle = '#445';
+  ctx.fillRect(cx - 18, cy - 10, 36, 12);
+
+  // Pole connection
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(cx, cy + 2); ctx.lineTo(cx, cy + 80); ctx.stroke();
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(cx, cy + 50); ctx.lineTo(cx, cy + 120); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#ff6b35'; ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Makara (doner)', cx + 30, cy - 25);
+  ctx.fillText('Emniyet kancasi', cx + 30, cy - 50);
+  ctx.fillText('Baglanti plakasi', cx + 30, cy - 2);
+  ctx.fillText('Teleskopik direk', cx + 30, cy + 70);
+
+  // Dimensions
+  ctx.fillStyle = '#ffcc00'; ctx.font = '10px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('cap: 3cm', cx - 30, cy - 20);
+}
+
+function drawFold() {
+  const c = document.getElementById('cvFold');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const ground = H - 30;
+
+  // --- LEFT: Folded ---
+  const lx = 100, ly = ground;
+
+  // Robot body
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(lx - 35, ly - 30, 70, 25);
+  ctx.strokeStyle = '#4a8aba'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(lx - 35, ly - 30, 70, 25);
+  // Wheels
+  ctx.fillStyle = '#333';
+  [lx - 25, lx + 25].forEach(wx => { ctx.beginPath(); ctx.arc(wx, ly, 7, 0, Math.PI * 2); ctx.fill(); });
+
+  // Folded pole (horizontal on top)
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(lx - 30, ly - 35); ctx.lineTo(lx + 30, ly - 35); ctx.stroke();
+  ctx.fillStyle = '#ff6b35'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('direk (katlanmis)', lx, ly - 42);
+
+  // 60cm limit
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(lx - 50, ly - 120); ctx.lineTo(lx + 50, ly - 120); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ff4444'; ctx.font = '9px monospace';
+  ctx.fillText('60cm siniri', lx, ly - 125);
+
+  // Height markers
+  ctx.fillStyle = '#ffcc00'; ctx.font = '9px monospace';
+  ctx.fillText('~20cm robot', lx, ly - 15);
+  ctx.fillText('~30cm direk', lx, ly - 50);
+  ctx.fillText('= ~50cm toplam', lx, ly - 62);
+
+  ctx.fillStyle = '#00ff88'; ctx.font = 'bold 10px monospace';
+  ctx.fillText('KATLANMIS', lx, ly + 20);
+
+  // --- RIGHT: Extended ---
+  const rx = 300;
+
+  // Robot body
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(rx - 35, ly - 30, 70, 25);
+  ctx.strokeStyle = '#4a8aba'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(rx - 35, ly - 30, 70, 25);
+  ctx.fillStyle = '#333';
+  [rx - 25, rx + 25].forEach(wx => { ctx.beginPath(); ctx.arc(wx, ly, 7, 0, Math.PI * 2); ctx.fill(); });
+
+  // Extended pole (vertical)
+  const poleTop = ly - 30 - 160;
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(rx, ly - 30); ctx.lineTo(rx, poleTop + 60); ctx.stroke();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(rx, poleTop + 60); ctx.lineTo(rx, poleTop + 20); ctx.stroke();
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(rx, poleTop + 20); ctx.lineTo(rx, poleTop); ctx.stroke();
+
+  // Hook at top
+  ctx.beginPath();
+  ctx.arc(rx, poleTop, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff6b35';
+  ctx.fill();
+
+  ctx.fillStyle = '#ffcc00'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('90cm', rx + 12, poleTop + 5);
+  ctx.fillText('erisim', rx + 12, poleTop + 17);
+
+  ctx.fillStyle = '#ff6b35'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('ACIK', rx, ly + 20);
+}
+
+function draw() { drawMain(); drawHook(); drawFold(); }
+draw();
+</script>
+</body>
+</html>
